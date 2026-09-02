@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+BUILD_ID = "2026-09-02c"
+
 
 def _env(name, default=""):
     val = os.getenv(name)
@@ -18,7 +20,11 @@ def _bool(name, default="false"):
 
 
 def _int(name, default):
-    return int(_env(name, str(default)))
+    raw = _env(name, str(default))
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return int(default)
 
 
 def load_config():

@@ -63,6 +63,18 @@ def is_bounce_error(exc):
     return any(re.search(p, text) for p in BOUNCE_PATTERNS)
 
 
+BUILD_ID = "2026-09-02c"
+
+
+def _safe_int(val, default):
+    if val is None or str(val).strip() == "":
+        return int(default)
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return int(default)
+
+
 def smtp_send(cfg, to_email, subject, text_body, unsubscribe_url=None):
     msg = EmailMessage()
     msg["From"] = formataddr((cfg["FROM_NAME"], cfg["FROM_EMAIL"]))
@@ -82,7 +94,7 @@ def smtp_send(cfg, to_email, subject, text_body, unsubscribe_url=None):
         return
 
     context = ssl.create_default_context()
-    port = int(cfg["SMTP_PORT"])
+    port = _safe_int(cfg.get("SMTP_PORT"), 465)
     encryption = (cfg.get("SMTP_ENCRYPTION") or "").lower()
 
     try:
@@ -113,13 +125,13 @@ def smtp_send(cfg, to_email, subject, text_body, unsubscribe_url=None):
 
 
 def sleep_between(cfg, campaign=None):
-    low = int(
-        (campaign and campaign["delay_min_seconds"])
-        or cfg["SEND_DELAY_MIN_SECONDS"]
+    low = _safe_int(
+        campaign and campaign.get("delay_min_seconds"),
+        cfg["SEND_DELAY_MIN_SECONDS"],
     )
-    high = int(
-        (campaign and campaign["delay_max_seconds"])
-        or cfg["SEND_DELAY_MAX_SECONDS"]
+    high = _safe_int(
+        campaign and campaign.get("delay_max_seconds"),
+        cfg["SEND_DELAY_MAX_SECONDS"],
     )
     if high > 0:
         time.sleep(random.randint(low, max(low, high)))
@@ -163,7 +175,7 @@ def scan_inbox(cfg, since_date):
         return results
 
     own = _own_addresses(cfg)
-    mail = imaplib.IMAP4_SSL(cfg["IMAP_HOST"], int(cfg["IMAP_PORT"]))
+    mail = imaplib.IMAP4_SSL(cfg["IMAP_HOST"], _safe_int(cfg.get("IMAP_PORT"), 993))
     try:
         mail.login(cfg["IMAP_USER"], cfg["IMAP_PASSWORD"])
         mail.select(cfg.get("IMAP_FOLDER", "INBOX"))

@@ -2,7 +2,7 @@ import os
 
 from flask import Flask
 
-from config import load_config
+from config import BUILD_ID, load_config
 from database.db import connect
 from logging_config import setup_logging
 from routes.auth import register_auth
@@ -30,7 +30,7 @@ def _error_app(message):
 
     @app.route("/health")
     def health():
-        return {"ok": False, "error": message}, 500
+        return {"ok": False, "error": message, "build": BUILD_ID}, 500
 
     return app
 
@@ -62,7 +62,7 @@ def create_app():
     def health():
         try:
             con.execute("SELECT 1").fetchone()
-            return {"ok": True, "dry_run": cfg["DRY_RUN"]}
+            return {"ok": True, "dry_run": cfg["DRY_RUN"], "build": BUILD_ID}
         except Exception as exc:
             return {"ok": False, "error": str(exc)}, 500
 
