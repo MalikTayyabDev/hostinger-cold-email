@@ -2,6 +2,7 @@
 import os
 import re
 import sqlite3
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 INSERT_OR_IGNORE_CONFLICT = {
     "suppressions": "ON CONFLICT (email) DO NOTHING",
@@ -16,11 +17,12 @@ def _normalize_database_url(database_url):
 
     is_pooler = "pooler.supabase.com" in url or ":6543/" in url or url.rstrip("/").endswith(":6543")
 
-    if is_pooler and "pgbouncer=true" not in url.lower():
-        url += "&pgbouncer=true" if "?" in url else "?pgbouncer=true"
-
-    if "sslmode=" not in url.lower():
-        url += "&sslmode=require" if "?" in url else "?sslmode=require"
+    parsed = urlparse(url)
+    # psycopg2/libpq rejects pgbouncer=; disable prepared statements for pooler instead.
+    query = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if k.lower() != "pgbouncer"]
+    if not any(k.lower() == "sslmode" for k, _ in query):
+        query.append(("sslmode", "require"))
+    url = urlunparse(parsed._replace(query=urlencode(query)))
     return url, is_pooler
 
 
@@ -100,10 +102,24 @@ def _clean_database_url(database_url):
     return url
 
 
+def _check_serverless_database_url(url):
+    if not os.getenv("VERCEL"):
+        return
+    is_direct = re.search(r"@db\.[^/]+\.supabase\.co:5432/", url)
+    if is_direct:
+        raise ValueError(
+            "DATABASE_URL uses Supabase direct connection (port 5432). "
+            "Vercel requires the Transaction pooler (port 6543). "
+            "In Supabase → Project Settings → Database → Connection string, "
+            "choose URI + Transaction pooler, then update DATABASE_URL in Vercel."
+        )
+
+
 def connect_postgres(database_url):
     import psycopg2
 
     url, is_pooler = _normalize_database_url(_clean_database_url(database_url))
+    _check_serverless_database_url(url)
     raw = psycopg2.connect(url)
     if is_pooler:
         raw.prepare_threshold = None
