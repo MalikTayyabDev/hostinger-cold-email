@@ -2,16 +2,15 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from routes.auth_helpers import generate_csrf_token, get_current_user_id, get_user_cfg, login_required, validate_csrf
 from services import email_service
-from services.user_settings_service import save_user_settings, settings_form_defaults, smtp_configured
+from services.user_settings_service import (
+    build_settings_from_form,
+    get_user_settings,
+    save_user_settings,
+    simple_form_view,
+    smtp_configured,
+)
 
 settings_bp = Blueprint("settings", __name__, url_prefix="/settings")
-
-FORM_KEYS = (
-    "SMTP_HOST", "SMTP_PORT", "SMTP_ENCRYPTION", "SMTP_USER", "SMTP_PASSWORD",
-    "FROM_NAME", "FROM_EMAIL", "REPLY_TO",
-    "IMAP_HOST", "IMAP_PORT", "IMAP_USER", "IMAP_PASSWORD", "IMAP_FOLDER",
-    "TEST_EMAIL", "DRY_RUN", "DAILY_SEND_LIMIT",
-)
 
 
 def register_settings(app, con, cfg):
@@ -19,29 +18,24 @@ def register_settings(app, con, cfg):
     @login_required
     def index():
         user_id = get_current_user_id()
-        from services.user_settings_service import get_user_settings
         stored = get_user_settings(con, user_id)
 
         if request.method == "POST":
             validate_csrf()
-            data = {key: request.form.get(key, "") for key in FORM_KEYS}
-            if request.form.get("DRY_RUN") == "1":
-                data["DRY_RUN"] = "true"
-            else:
-                data["DRY_RUN"] = "false"
+            data = build_settings_from_form(request.form, cfg, stored)
             try:
                 save_user_settings(con, user_id, data)
             except Exception as exc:
                 flash(f"Could not save settings: {exc}", "error")
                 return redirect(url_for("settings.index"))
-            flash("Email settings saved.", "success")
+            flash("Email connected.", "success")
             return redirect(url_for("settings.index"))
 
         user_cfg = get_user_cfg(con, cfg, user_id)
-        form = settings_form_defaults(cfg, stored)
+        form = simple_form_view(cfg, stored)
         return render_template(
             "settings.html",
-            settings=form,
+            form=form,
             smtp_ready=smtp_configured(user_cfg),
             csrf_token=generate_csrf_token(),
         )
@@ -54,17 +48,17 @@ def register_settings(app, con, cfg):
         user_cfg = get_user_cfg(con, cfg, user_id)
         test_email = request.form.get("test_email") or user_cfg.get("TEST_EMAIL") or user_cfg.get("FROM_EMAIL")
         if not smtp_configured(user_cfg):
-            flash("Fill in SMTP username, password, and from email first.", "error")
+            flash("Save your email and password first.", "error")
             return redirect(url_for("settings.index"))
         if not test_email:
-            flash("Enter a test email address.", "error")
+            flash("Enter where to send the test email.", "error")
             return redirect(url_for("settings.index"))
         try:
             email_service.smtp_send(
                 user_cfg,
                 test_email,
-                "[Test] Cold Email SMTP connection",
-                "Your SMTP settings are working. You can create a campaign and send emails.",
+                "[Test] Your email is connected",
+                "Success — your email is connected and ready to send campaigns.",
             )
             flash(f"Test email sent to {test_email}.", "success")
         except email_service.SMTPDeliveryError as exc:

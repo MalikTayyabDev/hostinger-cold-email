@@ -18,7 +18,7 @@
       <a href="{{ url_for('campaigns.index') }}" class="{% if request.blueprint == 'campaigns' %}active{% endif %}">Campaigns</a>
       <a href="{{ url_for('leads.index') }}" class="{% if request.blueprint == 'leads' %}active{% endif %}">Leads</a>
       <a href="{{ url_for('leads.import_csv') }}">Import CSV</a>
-      <a href="{{ url_for('settings.index') }}" class="{% if request.blueprint == 'settings' %}active{% endif %}">Email Settings</a>
+      <a href="{{ url_for('settings.index') }}" class="{% if request.blueprint == 'settings' %}active{% endif %}">Connect Email</a>
       {% if session.get('logged_in') %}
       <a href="{{ url_for('auth.logout') }}">Logout</a>
       {% endif %}

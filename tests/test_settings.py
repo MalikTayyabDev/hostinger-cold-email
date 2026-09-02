@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash
 
 from database.db import utcnow_iso
 from services.user_settings_service import (
+    build_settings_from_form,
     get_user_settings,
     merge_user_config,
     save_user_settings,
@@ -84,6 +85,23 @@ def test_settings_form_defaults_masks_passwords(db, cfg):
     form = settings_form_defaults(cfg, get_user_settings(db, user_id))
     assert form["SMTP_PASSWORD"] == "********"
     assert form["IMAP_PASSWORD"] == "********"
+
+
+def test_build_settings_from_simple_form(cfg):
+    data = build_settings_from_form({
+        "email": "Me@Example.com",
+        "password": "secret",
+        "from_name": "Me",
+        "dry_run": "1",
+    }, cfg)
+    assert data["SMTP_USER"] == "me@example.com"
+    assert data["FROM_EMAIL"] == "me@example.com"
+    assert data["IMAP_USER"] == "me@example.com"
+    assert data["SMTP_PASSWORD"] == "secret"
+    assert data["IMAP_PASSWORD"] == "secret"
+    assert data["SMTP_HOST"] == "smtp.hostinger.com"
+    assert data["IMAP_HOST"] == "imap.hostinger.com"
+    assert data["DRY_RUN"] == "true"
 
 
 def test_postgres_upsert_sql_keeps_on_conflict():

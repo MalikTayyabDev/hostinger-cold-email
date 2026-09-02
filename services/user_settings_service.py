@@ -23,6 +23,58 @@ INT_KEYS = {"SMTP_PORT", "IMAP_PORT", "DAILY_SEND_LIMIT"}
 BOOL_KEYS = {"DRY_RUN"}
 
 
+HOSTINGER_DEFAULTS = {
+    "SMTP_HOST": "smtp.hostinger.com",
+    "SMTP_PORT": "465",
+    "SMTP_ENCRYPTION": "ssl",
+    "IMAP_HOST": "imap.hostinger.com",
+    "IMAP_PORT": "993",
+    "IMAP_FOLDER": "INBOX",
+}
+
+
+def simple_form_view(base_cfg, stored):
+    email = stored.get("FROM_EMAIL") or stored.get("SMTP_USER") or ""
+    dry = stored.get("DRY_RUN", base_cfg.get("DRY_RUN", True))
+    if isinstance(dry, str):
+        dry = dry.lower() in ("1", "true", "yes")
+    return {
+        "email": email,
+        "from_name": stored.get("FROM_NAME", ""),
+        "password": "********" if stored.get("SMTP_PASSWORD") else "",
+        "test_email": stored.get("TEST_EMAIL") or email,
+        "dry_run": dry,
+    }
+
+
+def build_settings_from_form(form, base_cfg, existing=None):
+    """Map the simple connect form to full SMTP/IMAP settings."""
+    existing = existing or {}
+    email = (form.get("email") or "").strip().lower()
+    from_name = (form.get("from_name") or "").strip()
+    password = form.get("password") or ""
+    test_email = (form.get("test_email") or "").strip() or email
+
+    data = dict(HOSTINGER_DEFAULTS)
+    data["FROM_NAME"] = from_name
+    data["TEST_EMAIL"] = test_email
+    data["DRY_RUN"] = "true" if form.get("dry_run") == "1" else "false"
+    data["DAILY_SEND_LIMIT"] = str(
+        existing.get("DAILY_SEND_LIMIT") or base_cfg.get("DAILY_SEND_LIMIT", 20)
+    )
+
+    if email:
+        data["SMTP_USER"] = email
+        data["FROM_EMAIL"] = email
+        data["IMAP_USER"] = email
+
+    if password and password != "********":
+        data["SMTP_PASSWORD"] = password
+        data["IMAP_PASSWORD"] = password
+
+    return data
+
+
 def get_user_settings(con, user_id):
     rows = con.execute(
         "SELECT key, value FROM user_settings WHERE user_id=?",

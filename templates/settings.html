@@ -1,111 +1,54 @@
 {% extends "base.html" %}
-{% block title %}Settings{% endblock %}
+{% block title %}Connect Email{% endblock %}
 {% block content %}
-<h1>Email Settings</h1>
+<h1>Connect your email</h1>
 <p style="color:var(--muted);margin-bottom:20px">
-  Connect your email account here. Settings are saved to your account — no server config needed.
+  Enter your Hostinger mailbox. SMTP and inbox sync are configured automatically.
 </p>
 
 {% if not smtp_ready %}
-<div class="flash warning">Connect SMTP below before sending campaigns.</div>
+<div class="flash warning">Connect your email to start sending campaigns.</div>
 {% else %}
 <div class="flash success">Email connected — you're ready to send.</div>
 {% endif %}
 
-<form method="post" class="card">
+<form method="post" class="card" style="max-width:480px">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <h3>SMTP (outgoing mail)</h3>
-  <div class="grid grid-2">
-    <div class="form-row">
-      <label>SMTP Host</label>
-      <input name="SMTP_HOST" value="{{ settings.SMTP_HOST }}" placeholder="smtp.hostinger.com">
-    </div>
-    <div class="form-row">
-      <label>SMTP Port</label>
-      <input name="SMTP_PORT" type="number" value="{{ settings.SMTP_PORT }}">
-    </div>
-    <div class="form-row">
-      <label>Encryption</label>
-      <select name="SMTP_ENCRYPTION">
-        <option value="ssl" {% if settings.SMTP_ENCRYPTION == 'ssl' %}selected{% endif %}>SSL (465)</option>
-        <option value="starttls" {% if settings.SMTP_ENCRYPTION == 'starttls' %}selected{% endif %}>STARTTLS (587)</option>
-      </select>
-    </div>
-    <div class="form-row">
-      <label>SMTP Username</label>
-      <input name="SMTP_USER" value="{{ settings.SMTP_USER }}" placeholder="you@yourdomain.com">
-    </div>
-    <div class="form-row">
-      <label>SMTP Password</label>
-      <input name="SMTP_PASSWORD" type="password" value="{{ settings.SMTP_PASSWORD }}" placeholder="Leave blank to keep current">
-    </div>
-    <div class="form-row">
-      <label>From Name</label>
-      <input name="FROM_NAME" value="{{ settings.FROM_NAME }}">
-    </div>
-    <div class="form-row">
-      <label>From Email</label>
-      <input name="FROM_EMAIL" value="{{ settings.FROM_EMAIL }}" placeholder="you@yourdomain.com">
-    </div>
-    <div class="form-row">
-      <label>Reply-To (optional)</label>
-      <input name="REPLY_TO" value="{{ settings.REPLY_TO }}">
-    </div>
+
+  <div class="form-row">
+    <label>Your email</label>
+    <input name="email" type="email" value="{{ form.email }}" placeholder="you@yourdomain.com" required autofocus>
   </div>
 
-  <h3 style="margin-top:24px">IMAP (inbox — reply detection)</h3>
-  <div class="grid grid-2">
-    <div class="form-row">
-      <label>IMAP Host</label>
-      <input name="IMAP_HOST" value="{{ settings.IMAP_HOST }}" placeholder="imap.hostinger.com">
-    </div>
-    <div class="form-row">
-      <label>IMAP Port</label>
-      <input name="IMAP_PORT" type="number" value="{{ settings.IMAP_PORT }}">
-    </div>
-    <div class="form-row">
-      <label>IMAP Username</label>
-      <input name="IMAP_USER" value="{{ settings.IMAP_USER }}">
-    </div>
-    <div class="form-row">
-      <label>IMAP Password</label>
-      <input name="IMAP_PASSWORD" type="password" value="{{ settings.IMAP_PASSWORD }}" placeholder="Leave blank to keep current">
-    </div>
-    <div class="form-row">
-      <label>IMAP Folder</label>
-      <input name="IMAP_FOLDER" value="{{ settings.IMAP_FOLDER or 'INBOX' }}">
-    </div>
+  <div class="form-row">
+    <label>Email password</label>
+    <input name="password" type="password" value="{{ form.password }}"
+           placeholder="{% if form.password %}Leave blank to keep current{% else %}Your mailbox password{% endif %}">
   </div>
 
-  <h3 style="margin-top:24px">Sending</h3>
-  <div class="grid grid-2">
-    <div class="form-row">
-      <label>Test email address</label>
-      <input name="TEST_EMAIL" value="{{ settings.TEST_EMAIL }}" placeholder="Where test emails go">
-    </div>
-    <div class="form-row">
-      <label>Daily send limit</label>
-      <input name="DAILY_SEND_LIMIT" type="number" value="{{ settings.DAILY_SEND_LIMIT }}">
-    </div>
-    <div class="form-row">
-      <label>
-        <input type="checkbox" name="DRY_RUN" value="1" {% if settings.DRY_RUN %}checked{% endif %}>
-        Dry run (log only — don't actually send)
-      </label>
-    </div>
+  <div class="form-row">
+    <label>Your name</label>
+    <input name="from_name" value="{{ form.from_name }}" placeholder="John Smith">
+    <small style="color:var(--muted)">Shown as the sender on outgoing emails.</small>
   </div>
 
-  <div style="margin-top:20px">
-    <button class="btn btn-primary" type="submit">Save settings</button>
+  <div class="form-row">
+    <label>
+      <input type="checkbox" name="dry_run" value="1" {% if form.dry_run %}checked{% endif %}>
+      Practice mode — don't actually send emails yet
+    </label>
   </div>
+
+  <button class="btn btn-primary" type="submit">Save &amp; connect</button>
 </form>
 
-<div class="card">
-  <h3>Test connection</h3>
+<div class="card" style="max-width:480px">
+  <h3>Test it</h3>
+  <p style="color:var(--muted);font-size:14px;margin-bottom:12px">Save first, then send a test email to confirm everything works.</p>
   <form action="{{ url_for('settings.test_smtp') }}" method="post" class="form-inline">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input name="test_email" type="email" placeholder="Send test to..." value="{{ settings.TEST_EMAIL }}" style="width:260px">
-    <button class="btn btn-secondary" type="submit">Send test email</button>
+    <input name="test_email" type="email" placeholder="Send test to..." value="{{ form.test_email }}" style="width:100%;max-width:280px">
+    <button class="btn btn-secondary" type="submit" {% if not smtp_ready %}disabled{% endif %}>Send test</button>
   </form>
 </div>
 {% endblock %}
