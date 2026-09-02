@@ -9,6 +9,17 @@ INSERT_OR_IGNORE_CONFLICT = {
 }
 
 
+def _normalize_database_url(database_url):
+    url = database_url.strip()
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://") :]
+    if "pgbouncer=true" not in url.lower():
+        url += "&pgbouncer=true" if "?" in url else "?pgbouncer=true"
+    if "sslmode=" not in url.lower():
+        url += "&sslmode=require" if "?" in url else "?sslmode=require"
+    return url
+
+
 def _translate_sql_postgres(sql):
     m = re.match(
         r"INSERT OR IGNORE INTO (\w+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)",
@@ -73,21 +84,16 @@ class PostgresConnection:
         self._raw.commit()
 
     def executescript(self, script):
-        pass  # Schema applied via supabase/schema.sql
+        pass
 
 
 def connect_postgres(database_url):
     import psycopg2
 
-    url = database_url.strip()
-    if url.startswith("postgres://"):
-        url = "postgresql://" + url[len("postgres://") :]
-
-    connect_kwargs = {}
-    if "sslmode=" not in url:
-        connect_kwargs["sslmode"] = "require"
-
-    raw = psycopg2.connect(url, **connect_kwargs)
+    url = _normalize_database_url(database_url)
+    raw = psycopg2.connect(url)
+    # Required for Supabase transaction pooler (PgBouncer).
+    raw.prepare_threshold = None
     raw.autocommit = False
     return PostgresConnection(raw)
 

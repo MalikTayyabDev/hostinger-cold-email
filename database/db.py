@@ -329,7 +329,8 @@ def _migrate_legacy(con):
 
 
 def _ensure_default_campaign(con):
-    count = con.execute("SELECT COUNT(*) c FROM campaigns").fetchone()["c"]
+    row = con.execute("SELECT COUNT(*) AS c FROM campaigns").fetchone()
+    count = row["c"] if row else 0
     if count:
         return
     now = utcnow_iso()
