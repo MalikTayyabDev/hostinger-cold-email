@@ -1,11 +1,11 @@
 import logging
+import os
 from pathlib import Path
 
 LOG_DIR = Path(__file__).resolve().parent / "logs"
 
 
 def setup_logging(name="cold_email"):
-    LOG_DIR.mkdir(exist_ok=True)
     logger = logging.getLogger(name)
     if logger.handlers:
         return logger
@@ -16,12 +16,18 @@ def setup_logging(name="cold_email"):
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    file_handler = logging.FileHandler(LOG_DIR / "app.log", encoding="utf-8")
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-
     console = logging.StreamHandler()
     console.setFormatter(formatter)
     logger.addHandler(console)
+
+    # Vercel serverless has a read-only filesystem — skip file logging there.
+    if not os.getenv("VERCEL"):
+        try:
+            LOG_DIR.mkdir(exist_ok=True)
+            file_handler = logging.FileHandler(LOG_DIR / "app.log", encoding="utf-8")
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+        except OSError:
+            pass
 
     return logger

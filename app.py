@@ -34,6 +34,14 @@ def create_app():
     register_unsubscribe(app, con)
     register_cron(app, con, cfg)
 
+    @app.route("/health")
+    def health():
+        try:
+            con.execute("SELECT 1").fetchone()
+            return {"ok": True, "dry_run": cfg["DRY_RUN"]}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}, 500
+
     @app.context_processor
     def inject_globals():
         return {
@@ -62,8 +70,16 @@ def create_app():
     return app
 
 
-app = create_app()
+def get_app():
+    """Factory accessor for serverless / testing."""
+    return create_app()
+
+
+# Local dev entrypoint only — Vercel uses api/index.py
+if not os.getenv("VERCEL"):
+    app = create_app()
 
 if __name__ == "__main__":
-    cfg = app.config["CFG"]
-    app.run(host=cfg["APP_HOST"], port=cfg["APP_PORT"], debug=False)
+    application = create_app()
+    cfg = application.config["CFG"]
+    application.run(host=cfg["APP_HOST"], port=cfg["APP_PORT"], debug=False)

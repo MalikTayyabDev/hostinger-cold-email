@@ -79,7 +79,15 @@ class PostgresConnection:
 def connect_postgres(database_url):
     import psycopg2
 
-    raw = psycopg2.connect(database_url)
+    url = database_url.strip()
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://") :]
+
+    connect_kwargs = {}
+    if "sslmode=" not in url:
+        connect_kwargs["sslmode"] = "require"
+
+    raw = psycopg2.connect(url, **connect_kwargs)
     raw.autocommit = False
     return PostgresConnection(raw)
 
