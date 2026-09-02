@@ -24,7 +24,7 @@
     <label>Smart opener angle</label>
     <select name="opener_angle">
       {% for a in opener_angles %}
-      <option value="{{ a.id }}" {% if (lead.opener_angle or 'auto') == a.id %}selected{% endif %}>{{ a.label }}</option>
+      <option value="{{ a.id }}" {% if lead_opener_angle == a.id %}selected{% endif %}>{{ a.label }}</option>
       {% endfor %}
     </select>
   </div>

@@ -3,6 +3,11 @@ import secrets
 from datetime import datetime, timezone
 
 from database.db import add_event, utcnow_iso
+from services.lead_meta import (
+    encode_angle_in_tags,
+    lead_has_opener_angle_column,
+    normalize_opener_angle,
+)
 from services.template_service import ensure_unsubscribe_token
 
 
@@ -71,13 +76,15 @@ def list_leads(con, campaign_id=None, status=None, search=None, page=1, per_page
     where = " AND ".join(clauses)
     total = con.execute(
         f"""SELECT COUNT(*) c FROM campaign_leads cl
-            JOIN leads l ON l.id=cl.lead_id WHERE {where}""",
+            JOIN leads l ON l.id=cl.lead_id
+            JOIN campaigns c ON c.id=cl.campaign_id
+            WHERE {where}""",
         params,
     ).fetchone()["c"]
 
     rows = con.execute(
         f"""SELECT l.id, l.first_name, l.last_name, l.full_name, l.company, l.email,
-                   l.website, l.industry, l.location, l.custom_line, l.opener_angle, l.tags, l.notes,
+                   l.website, l.industry, l.location, l.custom_line, l.tags, l.notes,
                    l.unsubscribe_token, l.created_at,
                    cl.id AS campaign_lead_id, cl.campaign_id, cl.status,
                    cl.sequence_step, cl.emails_sent, cl.last_contacted_at,
@@ -181,6 +188,10 @@ def _add_lead_row(con, campaign_id, row, now=None):
     now = now or utcnow_iso()
     first, last, full = parse_name_fields(row)
     token = secrets.token_urlsafe(32)
+    angle = normalize_opener_angle(row.get("opener_angle"))
+    tags = (row.get("tags") or "").strip()
+    if not lead_has_opener_angle_column(con) and angle != "auto":
+        tags = encode_angle_in_tags(angle, tags)
 
     existing = con.execute(
         "SELECT id FROM leads WHERE lower(email)=lower(?)",
@@ -190,27 +201,49 @@ def _add_lead_row(con, campaign_id, row, now=None):
     if existing:
         lead_id = existing["id"]
     else:
-        lead_id = con.execute(
-            """INSERT INTO leads(
-                first_name, last_name, full_name, company, email, website,
-                industry, location, custom_line, opener_angle, tags, unsubscribe_token, created_at
-            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (
-                first,
-                last,
-                full,
-                (row.get("company") or "").strip(),
-                email,
-                (row.get("website") or "").strip(),
-                (row.get("industry") or "").strip(),
-                (row.get("location") or "").strip(),
-                (row.get("custom_line") or "").strip(),
-                (row.get("opener_angle") or "auto").strip().lower() or "auto",
-                (row.get("tags") or "").strip(),
-                token,
-                now,
-            ),
-        ).lastrowid
+        if lead_has_opener_angle_column(con):
+            lead_id = con.execute(
+                """INSERT INTO leads(
+                    first_name, last_name, full_name, company, email, website,
+                    industry, location, custom_line, opener_angle, tags, unsubscribe_token, created_at
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    first,
+                    last,
+                    full,
+                    (row.get("company") or "").strip(),
+                    email,
+                    (row.get("website") or "").strip(),
+                    (row.get("industry") or "").strip(),
+                    (row.get("location") or "").strip(),
+                    (row.get("custom_line") or "").strip(),
+                    angle,
+                    tags,
+                    token,
+                    now,
+                ),
+            ).lastrowid
+        else:
+            lead_id = con.execute(
+                """INSERT INTO leads(
+                    first_name, last_name, full_name, company, email, website,
+                    industry, location, custom_line, tags, unsubscribe_token, created_at
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    first,
+                    last,
+                    full,
+                    (row.get("company") or "").strip(),
+                    email,
+                    (row.get("website") or "").strip(),
+                    (row.get("industry") or "").strip(),
+                    (row.get("location") or "").strip(),
+                    (row.get("custom_line") or "").strip(),
+                    tags,
+                    token,
+                    now,
+                ),
+            ).lastrowid
 
     cl_id = con.execute(
         """INSERT INTO campaign_leads(campaign_id, lead_id, status, created_at)
@@ -300,8 +333,13 @@ def suppress_lead(con, campaign_lead_id, source="manual"):
 def update_lead(con, lead_id, data):
     fields = [
         "first_name", "last_name", "full_name", "company", "email",
-        "website", "industry", "location", "custom_line", "opener_angle", "tags", "notes",
+        "website", "industry", "location", "custom_line", "tags", "notes",
     ]
+    if lead_has_opener_angle_column(con):
+        fields.insert(-2, "opener_angle")
+    elif "opener_angle" in data:
+        data = dict(data)
+        data["tags"] = encode_angle_in_tags(data.get("opener_angle"), data.get("tags", ""))
     sets = []
     params = []
     for f in fields:
@@ -334,7 +372,7 @@ def export_leads(con, campaign_id=None, status=None, suppressed_only=False):
     where = " AND ".join(clauses)
     return con.execute(
         f"""SELECT l.first_name, l.last_name, l.full_name, l.company, l.email,
-                   l.website, l.industry, l.location, l.custom_line, l.opener_angle, l.tags,
+                   l.website, l.industry, l.location, l.custom_line, l.tags,
                    cl.status, c.name AS campaign_name, cl.last_contacted_at,
                    cl.next_action_at, cl.emails_sent, cl.replies_count
             FROM campaign_leads cl

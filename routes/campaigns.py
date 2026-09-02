@@ -195,10 +195,14 @@ def register_campaigns(app, con, cfg):
         result = scheduler_service.send_batch(
             con, user_cfg, limit=10, campaign_id=campaign_id, user_id=user_id
         )
-        flash(
-            f"Sent {result['sent']} email(s), {result['failed']} failed.",
-            "success" if result["sent"] else "warning",
-        )
+        if result["sent"]:
+            flash(f"Sent {result['sent']} email(s), {result['failed']} failed.", "success")
+        else:
+            hint = scheduler_service.diagnose_send(con, campaign_id, user_id, user_cfg)
+            flash(
+                f"Sent 0 email(s), {result['failed']} failed. {hint}",
+                "warning",
+            )
         return redirect(url_for("campaigns.detail", campaign_id=campaign_id))
 
     @campaigns_bp.post("/<int:campaign_id>/pause")

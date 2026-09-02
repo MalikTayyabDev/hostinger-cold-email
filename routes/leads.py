@@ -5,6 +5,7 @@ from flask import Blueprint, flash, redirect, render_template, request, send_fil
 
 from routes.auth_helpers import generate_csrf_token, get_current_user_id, login_required, validate_csrf
 from services import campaign_service, lead_service, opener_service, signature_service
+from services.lead_meta import opener_angle_from_row
 
 leads_bp = Blueprint("leads", __name__, url_prefix="/leads")
 
@@ -21,11 +22,15 @@ def register_leads(app, con, cfg):
         sort = request.args.get("sort", "id")
         order = request.args.get("order", "desc")
 
-        rows, total = lead_service.list_leads(
-            con, campaign_id=campaign_id, status=status,
-            search=search, page=page, sort=sort, order=order, user_id=user_id,
-        )
-        campaigns = campaign_service.list_campaigns(con, user_id)
+        try:
+            rows, total = lead_service.list_leads(
+                con, campaign_id=campaign_id, status=status,
+                search=search, page=page, sort=sort, order=order, user_id=user_id,
+            )
+            campaigns = campaign_service.list_campaigns(con, user_id)
+        except Exception as exc:
+            flash(f"Could not load leads: {exc}", "error")
+            rows, total, campaigns = [], 0, []
         per_page = 50
         pages = max(1, (total + per_page - 1) // per_page)
 
@@ -111,6 +116,7 @@ def register_leads(app, con, cfg):
             "leads/edit.html",
             lead=lead,
             opener_angles=opener_service.list_angles_for_ui(),
+            lead_opener_angle=opener_angle_from_row(lead),
             csrf_token=generate_csrf_token(),
         )
 

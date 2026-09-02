@@ -36,6 +36,17 @@ def _column_exists(con, table, column):
     return any(r[1] == column for r in rows)
 
 
+_COLUMN_CACHE = {}
+
+
+def column_exists_cached(con, table, column):
+    raw = getattr(con, "_raw", con)
+    cache_key = (id(raw), table, column)
+    if cache_key not in _COLUMN_CACHE:
+        _COLUMN_CACHE[cache_key] = _column_exists(con, table, column)
+    return _COLUMN_CACHE[cache_key]
+
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

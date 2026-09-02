@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta, timezone
 
 from database.db import add_event, daily_sent_count, utcnow_iso
-from services import campaign_service, email_service, lead_service, signature_service, template_service
+from services import campaign_service, email_service, signature_service, template_service
+from services.lead_meta import campaign_has_signature_column, lead_has_opener_angle_column, opener_angle_from_row
 from services.user_settings_service import merge_user_config
 
 
@@ -66,16 +67,19 @@ def eligible_sends(con, campaign_id=None, user_id=None):
         params.append(user_id)
 
     where = " AND ".join(clauses)
+    angle_col = "l.opener_angle" if lead_has_opener_angle_column(con) else "NULL AS opener_angle"
+    sig_col = "c.signature_id" if campaign_has_signature_column(con) else "NULL AS signature_id"
     rows = con.execute(
         f"""SELECT cl.id, cl.campaign_id, cl.lead_id, cl.status, cl.sequence_step,
                    cl.emails_sent, cl.replied_at, cl.bounced_at, cl.unsubscribed_at,
                    cl.next_action_at, cl.send_lock_until,
                    l.email, l.first_name, l.last_name, l.full_name, l.company,
-                   l.website, l.industry, l.location, l.custom_line, l.opener_angle, l.tags, l.notes,
+                   l.website, l.industry, l.location, l.custom_line, {angle_col} AS opener_angle,
+                   l.tags, l.notes,
                    l.unsubscribe_token, l.id AS lead_pk,
                    c.name AS campaign_name, c.daily_send_limit, c.user_id,
                    c.delay_min_seconds, c.delay_max_seconds, c.status AS campaign_status,
-                   c.signature_id
+                   {sig_col}
             FROM campaign_leads cl
             JOIN leads l ON l.id=cl.lead_id
             JOIN campaigns c ON c.id=cl.campaign_id
@@ -118,7 +122,7 @@ def send_one(con, cfg, row, step):
         "industry": row["industry"],
         "location": row["location"],
         "custom_line": row["custom_line"],
-        "opener_angle": row["opener_angle"] if "opener_angle" in row.keys() else "auto",
+        "opener_angle": opener_angle_from_row(row),
         "tags": row["tags"],
         "notes": row["notes"],
         "unsubscribe_token": row["unsubscribe_token"],
@@ -142,7 +146,7 @@ def send_one(con, cfg, row, step):
     body = template_service.render_template(step["body"], lead, cfg, unsub_url)
 
     signature = None
-    sig_id = row["signature_id"] if "signature_id" in row.keys() else None
+    sig_id = row["signature_id"] if "signature_id" in row.keys() and row["signature_id"] else None
     if sig_id:
         signature = signature_service.get_signature(con, sig_id, row["user_id"])
     text_body, html_body = signature_service.compose_email_bodies(body, signature)
@@ -228,6 +232,44 @@ def send_batch(con, base_cfg, limit=None, campaign_id=None, user_id=None):
             failed += 1
 
     return {"sent": sent, "failed": failed}
+
+
+def diagnose_send(con, campaign_id, user_id, cfg):
+    """Explain why Send Now might deliver 0 emails."""
+    campaign = campaign_service.get_campaign(con, campaign_id, user_id)
+    if not campaign:
+        return "Campaign not found."
+    if campaign["status"] != "active":
+        return "Campaign is not active — click Start campaign first."
+
+    total = con.execute(
+        "SELECT COUNT(*) c FROM campaign_leads WHERE campaign_id=?",
+        (campaign_id,),
+    ).fetchone()["c"]
+    if total == 0:
+        return "No leads in this campaign — import CSV or add leads manually."
+
+    ready = con.execute(
+        """SELECT COUNT(*) c FROM campaign_leads
+           WHERE campaign_id=? AND status IN ('pending','active')
+             AND unsubscribed_at IS NULL AND replied_at IS NULL AND bounced_at IS NULL""",
+        (campaign_id,),
+    ).fetchone()["c"]
+    if ready == 0:
+        return "All leads are already completed, replied, bounced, or unsubscribed."
+
+    daily = daily_sent_count(con, campaign_id)
+    limit = _daily_limit(cfg, campaign)
+    if daily >= limit:
+        return f"Daily send limit reached ({daily}/{limit}). Try again tomorrow or raise the limit in campaign settings."
+
+    if not eligible_sends(con, campaign_id, user_id):
+        return "No leads are due right now — follow-ups may be scheduled for a later date."
+
+    if not cfg.get("SMTP_USER") and not cfg.get("DRY_RUN"):
+        return "Email is not connected — go to Connect Email in Settings."
+
+    return "No emails were sent — check Vercel logs or try again."
 
 
 def process_inbox(con, base_cfg, user_id=None):
