@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BUILD_ID = "2026-09-02g"
+BUILD_ID = "2026-09-02h"
 
 
 def _env(name, default=""):
@@ -57,6 +57,8 @@ def load_config():
         "SECRET_KEY": _env("SECRET_KEY") or secrets.token_hex(32),
         "ADMIN_USERNAME": _env("ADMIN_USERNAME", ""),
         "ADMIN_PASSWORD": _env("ADMIN_PASSWORD", ""),
+        "ALLOW_SIGNUP": _bool("ALLOW_SIGNUP", "true"),
+        "AUTH_DISABLED": _bool("AUTH_DISABLED", "false"),
         "TEST_EMAIL": _env("TEST_EMAIL", ""),
         "EMAIL_FOOTER": _env(
             "EMAIL_FOOTER",
@@ -71,4 +73,6 @@ def load_config():
 
 
 def auth_enabled(cfg):
-    return bool(cfg.get("ADMIN_USERNAME") and cfg.get("ADMIN_PASSWORD"))
+    if cfg.get("AUTH_DISABLED"):
+        return False
+    return True

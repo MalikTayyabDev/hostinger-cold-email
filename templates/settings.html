@@ -1,50 +1,111 @@
 {% extends "base.html" %}
 {% block title %}Settings{% endblock %}
 {% block content %}
-<h1>Settings</h1>
+<h1>Email Settings</h1>
 <p style="color:var(--muted);margin-bottom:20px">
-  Configuration is loaded from <code>.env</code>. Edit that file and restart the app to change values.
-  Passwords are never shown in plain text.
+  Connect your email account here. Settings are saved to your account — no server config needed.
 </p>
 
-<div class="card">
-  <h3>SMTP</h3>
-  <div class="grid grid-3">
-    <p><strong>Host:</strong> {{ settings.SMTP_HOST }}</p>
-    <p><strong>Port:</strong> {{ settings.SMTP_PORT }}</p>
-    <p><strong>Encryption:</strong> {{ settings.SMTP_ENCRYPTION }}</p>
-    <p><strong>Username:</strong> {{ settings.SMTP_USER or '—' }}</p>
-    <p><strong>Password:</strong> {{ settings.SMTP_PASSWORD or '—' }}</p>
+{% if not smtp_ready %}
+<div class="flash warning">Connect SMTP below before sending campaigns.</div>
+{% else %}
+<div class="flash success">Email connected — you're ready to send.</div>
+{% endif %}
+
+<form method="post" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <h3>SMTP (outgoing mail)</h3>
+  <div class="grid grid-2">
+    <div class="form-row">
+      <label>SMTP Host</label>
+      <input name="SMTP_HOST" value="{{ settings.SMTP_HOST }}" placeholder="smtp.hostinger.com">
+    </div>
+    <div class="form-row">
+      <label>SMTP Port</label>
+      <input name="SMTP_PORT" type="number" value="{{ settings.SMTP_PORT }}">
+    </div>
+    <div class="form-row">
+      <label>Encryption</label>
+      <select name="SMTP_ENCRYPTION">
+        <option value="ssl" {% if settings.SMTP_ENCRYPTION == 'ssl' %}selected{% endif %}>SSL (465)</option>
+        <option value="starttls" {% if settings.SMTP_ENCRYPTION == 'starttls' %}selected{% endif %}>STARTTLS (587)</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>SMTP Username</label>
+      <input name="SMTP_USER" value="{{ settings.SMTP_USER }}" placeholder="you@yourdomain.com">
+    </div>
+    <div class="form-row">
+      <label>SMTP Password</label>
+      <input name="SMTP_PASSWORD" type="password" value="{{ settings.SMTP_PASSWORD }}" placeholder="Leave blank to keep current">
+    </div>
+    <div class="form-row">
+      <label>From Name</label>
+      <input name="FROM_NAME" value="{{ settings.FROM_NAME }}">
+    </div>
+    <div class="form-row">
+      <label>From Email</label>
+      <input name="FROM_EMAIL" value="{{ settings.FROM_EMAIL }}" placeholder="you@yourdomain.com">
+    </div>
+    <div class="form-row">
+      <label>Reply-To (optional)</label>
+      <input name="REPLY_TO" value="{{ settings.REPLY_TO }}">
+    </div>
   </div>
-</div>
+
+  <h3 style="margin-top:24px">IMAP (inbox — reply detection)</h3>
+  <div class="grid grid-2">
+    <div class="form-row">
+      <label>IMAP Host</label>
+      <input name="IMAP_HOST" value="{{ settings.IMAP_HOST }}" placeholder="imap.hostinger.com">
+    </div>
+    <div class="form-row">
+      <label>IMAP Port</label>
+      <input name="IMAP_PORT" type="number" value="{{ settings.IMAP_PORT }}">
+    </div>
+    <div class="form-row">
+      <label>IMAP Username</label>
+      <input name="IMAP_USER" value="{{ settings.IMAP_USER }}">
+    </div>
+    <div class="form-row">
+      <label>IMAP Password</label>
+      <input name="IMAP_PASSWORD" type="password" value="{{ settings.IMAP_PASSWORD }}" placeholder="Leave blank to keep current">
+    </div>
+    <div class="form-row">
+      <label>IMAP Folder</label>
+      <input name="IMAP_FOLDER" value="{{ settings.IMAP_FOLDER or 'INBOX' }}">
+    </div>
+  </div>
+
+  <h3 style="margin-top:24px">Sending</h3>
+  <div class="grid grid-2">
+    <div class="form-row">
+      <label>Test email address</label>
+      <input name="TEST_EMAIL" value="{{ settings.TEST_EMAIL }}" placeholder="Where test emails go">
+    </div>
+    <div class="form-row">
+      <label>Daily send limit</label>
+      <input name="DAILY_SEND_LIMIT" type="number" value="{{ settings.DAILY_SEND_LIMIT }}">
+    </div>
+    <div class="form-row">
+      <label>
+        <input type="checkbox" name="DRY_RUN" value="1" {% if settings.DRY_RUN %}checked{% endif %}>
+        Dry run (log only — don't actually send)
+      </label>
+    </div>
+  </div>
+
+  <div style="margin-top:20px">
+    <button class="btn btn-primary" type="submit">Save settings</button>
+  </div>
+</form>
 
 <div class="card">
-  <h3>IMAP</h3>
-  <div class="grid grid-3">
-    <p><strong>Host:</strong> {{ settings.IMAP_HOST }}</p>
-    <p><strong>Port:</strong> {{ settings.IMAP_PORT }}</p>
-    <p><strong>Folder:</strong> {{ settings.IMAP_FOLDER }}</p>
-    <p><strong>Username:</strong> {{ settings.IMAP_USER or '—' }}</p>
-    <p><strong>Password:</strong> {{ settings.IMAP_PASSWORD or '—' }}</p>
-  </div>
-</div>
-
-<div class="card">
-  <h3>Sending</h3>
-  <div class="grid grid-3">
-    <p><strong>Daily limit:</strong> {{ settings.DAILY_SEND_LIMIT }}</p>
-    <p><strong>Min delay:</strong> {{ settings.SEND_DELAY_MIN_SECONDS }}s</p>
-    <p><strong>Max delay:</strong> {{ settings.SEND_DELAY_MAX_SECONDS }}s</p>
-    <p><strong>Max follow-ups:</strong> {{ settings.MAX_FOLLOWUPS }}</p>
-    <p><strong>Dry run:</strong> {{ settings.DRY_RUN }}</p>
-    <p><strong>Public URL:</strong> {{ settings.PUBLIC_BASE_URL or '—' }}</p>
-    <p><strong>Test email:</strong> {{ settings.TEST_EMAIL or '—' }}</p>
-  </div>
-</div>
-
-<div class="card">
-  <h3>Security</h3>
-  <p><strong>Dashboard auth:</strong> {{ 'Enabled' if settings.AUTH_ENABLED else 'Disabled (set ADMIN_USERNAME + ADMIN_PASSWORD in .env)' }}</p>
-  <p><strong>Bind address:</strong> 127.0.0.1 (default — localhost only)</p>
+  <h3>Test connection</h3>
+  <form action="{{ url_for('settings.test_smtp') }}" method="post" class="form-inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input name="test_email" type="email" placeholder="Send test to..." value="{{ settings.TEST_EMAIL }}" style="width:260px">
+    <button class="btn btn-secondary" type="submit">Send test email</button>
+  </form>
 </div>
 {% endblock %}

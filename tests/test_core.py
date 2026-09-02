@@ -80,8 +80,9 @@ def test_suppression_blocks_send(db, cfg):
     assert result["sent"] == 0
 
 
-def test_dashboard_loads():
+def test_health_endpoint():
     from app import app
     client = app.test_client()
-    r = client.get("/")
+    r = client.get("/health")
     assert r.status_code == 200
+    assert r.get_json()["ok"] is True

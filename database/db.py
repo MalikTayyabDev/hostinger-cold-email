@@ -8,6 +8,14 @@ def utcnow_iso():
 
 
 def _table_exists(con, name):
+    backend = getattr(con, "backend", "sqlite")
+    if backend == "postgres":
+        row = con.execute(
+            """SELECT 1 FROM information_schema.tables
+               WHERE table_schema='public' AND table_name=%s""",
+            (name,),
+        ).fetchone()
+        return row is not None
     row = con.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
         (name,),
@@ -16,6 +24,14 @@ def _table_exists(con, name):
 
 
 def _column_exists(con, table, column):
+    backend = getattr(con, "backend", "sqlite")
+    if backend == "postgres":
+        row = con.execute(
+            """SELECT 1 FROM information_schema.columns
+               WHERE table_schema='public' AND table_name=%s AND column_name=%s""",
+            (table, column),
+        ).fetchone()
+        return row is not None
     rows = con.execute(f"PRAGMA table_info({table})").fetchall()
     return any(r[1] == column for r in rows)
 
@@ -33,11 +49,13 @@ CREATE TABLE IF NOT EXISTS campaigns (
     name TEXT NOT NULL,
     description TEXT DEFAULT '',
     status TEXT NOT NULL DEFAULT 'draft',
+    user_id INTEGER,
     daily_send_limit INTEGER,
     delay_min_seconds INTEGER,
     delay_max_seconds INTEGER,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS campaign_steps (
@@ -117,6 +135,14 @@ CREATE TABLE IF NOT EXISTS suppressions (
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id INTEGER NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (user_id, key),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS scheduler_state (
@@ -334,11 +360,13 @@ def _ensure_default_campaign(con):
     if count:
         return
     now = utcnow_iso()
+    admin = con.execute("SELECT id FROM users ORDER BY id LIMIT 1").fetchone()
+    user_id = admin["id"] if admin else None
     cid = con.execute(
-        """INSERT INTO campaigns(name, description, status, daily_send_limit,
+        """INSERT INTO campaigns(name, description, status, user_id, daily_send_limit,
            delay_min_seconds, delay_max_seconds, created_at, updated_at)
-           VALUES(?,?,?,?,?,?,?,?)""",
-        ("Website Outreach", "Default outreach campaign", "draft", None, None, None, now, now),
+           VALUES(?,?,?,?,?,?,?,?,?)""",
+        ("Website Outreach", "Default outreach campaign", "draft", user_id, None, None, None, now, now),
     ).lastrowid
     for step_num, subject, body, delay in DEFAULT_STEPS:
         enabled = 1 if step_num <= 3 else 0
@@ -350,10 +378,38 @@ def _ensure_default_campaign(con):
     con.commit()
 
 
+def _migrate_multi_user(con):
+    backend = getattr(con, "backend", "sqlite")
+    if not _table_exists(con, "user_settings"):
+        con.execute(
+            """CREATE TABLE user_settings (
+                user_id INTEGER NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                PRIMARY KEY (user_id, key),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )"""
+        )
+        con.commit()
+
+    if _table_exists(con, "campaigns") and not _column_exists(con, "campaigns", "user_id"):
+        con.execute("ALTER TABLE campaigns ADD COLUMN user_id INTEGER")
+        con.commit()
+        admin = con.execute("SELECT id FROM users ORDER BY id LIMIT 1").fetchone()
+        if admin:
+            con.execute("UPDATE campaigns SET user_id=? WHERE user_id IS NULL", (admin["id"],))
+            con.commit()
+
+    if backend == "sqlite":
+        con.execute("CREATE INDEX IF NOT EXISTS idx_campaigns_user ON campaigns(user_id)")
+        con.commit()
+
+
 def connect(path="campaign.db"):
     if os.getenv("DATABASE_URL"):
         from database.adapter import connect_postgres
         con = connect_postgres(os.getenv("DATABASE_URL"))
+        _migrate_multi_user(con)
         _ensure_default_campaign(con)
         return con
 
@@ -363,6 +419,7 @@ def connect(path="campaign.db"):
     con.executescript(SCHEMA)
     con.commit()
     _migrate_legacy(con)
+    _migrate_multi_user(con)
     _ensure_default_campaign(con)
     _create_indexes(con)
     con.commit()

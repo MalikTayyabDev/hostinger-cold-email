@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
     name TEXT NOT NULL,
     description TEXT DEFAULT '',
     status TEXT NOT NULL DEFAULT 'draft',
+    user_id INTEGER REFERENCES users(id),
     daily_send_limit INTEGER,
     delay_min_seconds INTEGER,
     delay_max_seconds INTEGER,
@@ -92,11 +93,19 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (user_id, key)
+);
+
 CREATE TABLE IF NOT EXISTS scheduler_state (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_campaigns_user ON campaigns (user_id);
 CREATE INDEX IF NOT EXISTS idx_leads_email ON leads (lower(email));
 CREATE INDEX IF NOT EXISTS idx_cl_campaign ON campaign_leads (campaign_id);
 CREATE INDEX IF NOT EXISTS idx_cl_status ON campaign_leads (status);

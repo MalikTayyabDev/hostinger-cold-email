@@ -3,7 +3,7 @@ import io
 
 from flask import Blueprint, flash, redirect, render_template, request, send_file, url_for
 
-from routes.auth_helpers import generate_csrf_token, login_required, validate_csrf
+from routes.auth_helpers import generate_csrf_token, get_current_user_id, login_required, validate_csrf
 from services import campaign_service, lead_service
 
 leads_bp = Blueprint("leads", __name__, url_prefix="/leads")
@@ -13,6 +13,7 @@ def register_leads(app, con, cfg):
     @leads_bp.route("/")
     @login_required
     def index():
+        user_id = get_current_user_id()
         campaign_id = request.args.get("campaign_id", type=int)
         status = request.args.get("status")
         search = request.args.get("q")
@@ -22,9 +23,9 @@ def register_leads(app, con, cfg):
 
         rows, total = lead_service.list_leads(
             con, campaign_id=campaign_id, status=status,
-            search=search, page=page, sort=sort, order=order,
+            search=search, page=page, sort=sort, order=order, user_id=user_id,
         )
-        campaigns = campaign_service.list_campaigns(con)
+        campaigns = campaign_service.list_campaigns(con, user_id)
         per_page = 50
         pages = max(1, (total + per_page - 1) // per_page)
 
@@ -118,10 +119,14 @@ def register_leads(app, con, cfg):
     @leads_bp.route("/import", methods=["GET", "POST"])
     @login_required
     def import_csv():
-        campaigns = campaign_service.list_campaigns(con)
+        user_id = get_current_user_id()
+        campaigns = campaign_service.list_campaigns(con, user_id)
         if request.method == "POST":
             validate_csrf()
             campaign_id = int(request.form.get("campaign_id", 0))
+            if not campaign_service.get_campaign(con, campaign_id, user_id):
+                flash("Select a valid campaign.", "error")
+                return redirect(url_for("leads.import_csv"))
             f = request.files.get("file")
             if not f or not campaign_id:
                 flash("Select a campaign and CSV file.", "error")

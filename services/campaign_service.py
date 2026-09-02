@@ -1,16 +1,29 @@
 from datetime import datetime, timezone
 
-from database.db import add_event, utcnow_iso
+from database.db import DEFAULT_STEPS, add_event, utcnow_iso
 
 
-from database.db import DEFAULT_STEPS, utcnow_iso
-
-
-def get_campaign(con, campaign_id):
+def get_campaign(con, campaign_id, user_id=None):
+    if user_id is not None:
+        return con.execute(
+            "SELECT * FROM campaigns WHERE id=? AND user_id=?",
+            (campaign_id, user_id),
+        ).fetchone()
     return con.execute("SELECT * FROM campaigns WHERE id=?", (campaign_id,)).fetchone()
 
 
-def list_campaigns(con):
+def list_campaigns(con, user_id=None):
+    if user_id is not None:
+        return con.execute(
+            """SELECT c.*,
+                (SELECT COUNT(*) FROM campaign_leads cl WHERE cl.campaign_id=c.id) AS total_leads,
+                (SELECT COUNT(*) FROM campaign_leads cl WHERE cl.campaign_id=c.id AND cl.status='replied') AS replies,
+                (SELECT COUNT(*) FROM campaign_leads cl WHERE cl.campaign_id=c.id AND cl.status='bounced') AS bounces,
+                (SELECT COUNT(*) FROM campaign_leads cl WHERE cl.campaign_id=c.id AND cl.status='unsubscribed') AS unsubscribes,
+                (SELECT COALESCE(SUM(cl.emails_sent),0) FROM campaign_leads cl WHERE cl.campaign_id=c.id) AS emails_sent
+               FROM campaigns c WHERE c.user_id=? ORDER BY c.updated_at DESC""",
+            (user_id,),
+        ).fetchall()
     return con.execute(
         """SELECT c.*,
             (SELECT COUNT(*) FROM campaign_leads cl WHERE cl.campaign_id=c.id) AS total_leads,
@@ -46,12 +59,12 @@ def get_steps(con, campaign_id):
     ).fetchall()
 
 
-def create_campaign(con, name, description=""):
+def create_campaign(con, name, description="", user_id=None):
     now = utcnow_iso()
     cid = con.execute(
-        """INSERT INTO campaigns(name, description, status, created_at, updated_at)
-           VALUES(?,?,?,?,?)""",
-        (name, description, "draft", now, now),
+        """INSERT INTO campaigns(name, description, status, user_id, created_at, updated_at)
+           VALUES(?,?,?,?,?,?)""",
+        (name, description, "draft", user_id, now, now),
     ).lastrowid
     for step_num, subject, body, delay in DEFAULT_STEPS:
         enabled = 1 if step_num <= 3 else 0

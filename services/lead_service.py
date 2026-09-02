@@ -34,9 +34,13 @@ def get_lead(con, lead_id):
     return con.execute("SELECT * FROM leads WHERE id=?", (lead_id,)).fetchone()
 
 
-def list_leads(con, campaign_id=None, status=None, search=None, page=1, per_page=50, sort="id", order="desc"):
+def list_leads(con, campaign_id=None, status=None, search=None, page=1, per_page=50, sort="id", order="desc", user_id=None):
     clauses = ["1=1"]
     params = []
+
+    if user_id is not None:
+        clauses.append("c.user_id=?")
+        params.append(user_id)
 
     if campaign_id:
         clauses.append("cl.campaign_id=?")

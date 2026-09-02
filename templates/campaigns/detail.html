@@ -4,15 +4,25 @@
 <h1>{{ campaign.name }}</h1>
 <p style="color:var(--muted)">{{ campaign.description or 'No description' }}</p>
 
+{% if not smtp_ready %}
+<div class="flash warning">
+  <a href="{{ url_for('settings.index') }}">Connect your email</a> before sending.
+</div>
+{% endif %}
+
 <div class="toolbar">
   <span class="badge {{ campaign.status }}">{{ campaign.status }}</span>
   {% if campaign.status == 'draft' or campaign.status == 'paused' %}
   <form action="{{ url_for('campaigns.start' if campaign.status == 'draft' else 'campaigns.resume', campaign_id=campaign.id) }}" method="post" style="display:inline">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button class="btn btn-primary btn-sm" type="submit">{{ 'Start' if campaign.status == 'draft' else 'Resume' }}</button>
+    <button class="btn btn-primary btn-sm" type="submit">{{ 'Start Campaign' if campaign.status == 'draft' else 'Resume' }}</button>
   </form>
   {% endif %}
   {% if campaign.status == 'active' %}
+  <form action="{{ url_for('campaigns.send_now', campaign_id=campaign.id) }}" method="post" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="btn btn-primary btn-sm" type="submit" {% if not smtp_ready %}disabled{% endif %}>Send Now</button>
+  </form>
   <form action="{{ url_for('campaigns.pause', campaign_id=campaign.id) }}" method="post" style="display:inline">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <button class="btn btn-secondary btn-sm" type="submit">Pause</button>
@@ -22,11 +32,25 @@
   <a class="btn btn-sm btn-secondary" href="{{ url_for('leads.import_csv') }}?campaign_id={{ campaign.id }}">Import Leads</a>
 </div>
 
+{% if dry %}
+<p style="color:var(--muted);font-size:13px">Dry run is on — emails are logged but not sent. Turn off in <a href="{{ url_for('settings.index') }}">Settings</a>.</p>
+{% endif %}
+
 <div class="grid grid-4">
   <div class="stat"><b>{{ stats.get('pending', 0) + stats.get('active', 0) + stats.get('replied', 0) + stats.get('completed', 0) + stats.get('bounced', 0) + stats.get('unsubscribed', 0) }}</b><span>Total Leads</span></div>
   <div class="stat"><b>{{ stats.emails_sent }}</b><span>Emails Sent</span></div>
   <div class="stat"><b>{{ stats.get('replied', 0) }}</b><span>Replies</span></div>
   <div class="stat"><b>{{ stats.reply_rate }}%</b><span>Reply Rate</span></div>
+</div>
+
+<div class="card">
+  <h3>Quick start</h3>
+  <ol style="margin:0;padding-left:20px;color:var(--muted)">
+    <li><a href="{{ url_for('settings.index') }}">Connect your email</a></li>
+    <li><a href="{{ url_for('leads.import_csv') }}?campaign_id={{ campaign.id }}">Import leads (CSV)</a></li>
+    <li>Click <strong>Start Campaign</strong></li>
+    <li>Click <strong>Send Now</strong> to email eligible leads</li>
+  </ol>
 </div>
 
 <div class="card">

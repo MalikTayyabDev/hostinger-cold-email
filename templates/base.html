@@ -10,12 +10,15 @@
 <div class="layout">
   <aside class="sidebar">
     <h2>Cold Email</h2>
+    {% if session.get('logged_in') %}
+    <p style="color:var(--muted);font-size:13px;margin:0 0 12px">Hi, {{ session.get('username') }}</p>
+    {% endif %}
     <nav>
       <a href="{{ url_for('dashboard.index') }}" class="{% if request.endpoint == 'dashboard.index' %}active{% endif %}">Dashboard</a>
       <a href="{{ url_for('campaigns.index') }}" class="{% if request.blueprint == 'campaigns' %}active{% endif %}">Campaigns</a>
       <a href="{{ url_for('leads.index') }}" class="{% if request.blueprint == 'leads' %}active{% endif %}">Leads</a>
       <a href="{{ url_for('leads.import_csv') }}">Import CSV</a>
-      <a href="{{ url_for('settings.index') }}">Settings</a>
+      <a href="{{ url_for('settings.index') }}" class="{% if request.blueprint == 'settings' %}active{% endif %}">Email Settings</a>
       {% if session.get('logged_in') %}
       <a href="{{ url_for('auth.logout') }}">Logout</a>
       {% endif %}

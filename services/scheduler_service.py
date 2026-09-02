@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from database.db import add_event, daily_sent_count, utcnow_iso
 from services import campaign_service, email_service, lead_service, template_service
+from services.user_settings_service import merge_user_config
 
 
 def parse_dt(value):
@@ -45,7 +46,7 @@ def release_send_lock(con, campaign_lead_id):
     con.commit()
 
 
-def eligible_sends(con, campaign_id=None):
+def eligible_sends(con, campaign_id=None, user_id=None):
     now = datetime.now(timezone.utc)
     clauses = [
         "cl.unsubscribed_at IS NULL",
@@ -60,6 +61,9 @@ def eligible_sends(con, campaign_id=None):
     if campaign_id:
         clauses.append("cl.campaign_id=?")
         params.append(campaign_id)
+    if user_id is not None:
+        clauses.append("c.user_id=?")
+        params.append(user_id)
 
     where = " AND ".join(clauses)
     rows = con.execute(
@@ -69,7 +73,7 @@ def eligible_sends(con, campaign_id=None):
                    l.email, l.first_name, l.last_name, l.full_name, l.company,
                    l.website, l.industry, l.location, l.custom_line, l.tags, l.notes,
                    l.unsubscribe_token, l.id AS lead_pk,
-                   c.name AS campaign_name, c.daily_send_limit,
+                   c.name AS campaign_name, c.daily_send_limit, c.user_id,
                    c.delay_min_seconds, c.delay_max_seconds, c.status AS campaign_status
             FROM campaign_leads cl
             JOIN leads l ON l.id=cl.lead_id
@@ -180,23 +184,36 @@ def send_one(con, cfg, row, step):
     return True
 
 
-def send_batch(con, cfg, limit=None, campaign_id=None):
-    campaign = campaign_service.get_campaign(con, campaign_id) if campaign_id else None
-    daily_limit = _daily_limit(cfg, campaign)
+def _cfg_for_row(base_cfg, con, row):
+    data = dict(row)
+    uid = data.get("user_id")
+    if uid:
+        return merge_user_config(base_cfg, con, uid)
+    return base_cfg
+
+
+def send_batch(con, base_cfg, limit=None, campaign_id=None, user_id=None):
+    campaign = campaign_service.get_campaign(con, campaign_id, user_id) if campaign_id else None
+    active_cfg = merge_user_config(base_cfg, con, user_id) if user_id else base_cfg
+    daily_limit = _daily_limit(active_cfg, campaign)
     remaining = max(0, daily_limit - daily_sent_count(con, campaign_id))
 
     if limit is not None:
         remaining = min(remaining, limit)
 
     sent = failed = 0
-    for row, step in eligible_sends(con, campaign_id):
+    for row, step in eligible_sends(con, campaign_id, user_id):
         if sent >= remaining:
             break
+        send_cfg = _cfg_for_row(base_cfg, con, row)
+        if not send_cfg.get("SMTP_USER") and not send_cfg.get("DRY_RUN"):
+            failed += 1
+            continue
         try:
-            if send_one(con, cfg, row, step):
+            if send_one(con, send_cfg, row, step):
                 sent += 1
                 if sent < remaining:
-                    email_service.sleep_between(cfg, campaign)
+                    email_service.sleep_between(send_cfg, campaign)
         except email_service.SMTPDeliveryError:
             failed += 1
         except Exception:
@@ -205,66 +222,87 @@ def send_batch(con, cfg, limit=None, campaign_id=None):
     return {"sent": sent, "failed": failed}
 
 
-def process_inbox(con, cfg):
+def process_inbox(con, base_cfg, user_id=None):
     since = datetime.now(timezone.utc) - timedelta(days=30)
-    messages = email_service.scan_inbox(cfg, since)
     replies = unsubscribes = 0
 
-    for msg in messages:
-        sender = msg["sender"]
+    if user_id is not None:
+        user_ids = [user_id]
+    else:
         rows = con.execute(
-            """SELECT cl.*, l.email, l.id AS lead_id FROM campaign_leads cl
-               JOIN leads l ON l.id=cl.lead_id
-               WHERE lower(l.email)=lower(?)
-                 AND cl.unsubscribed_at IS NULL""",
-            (sender,),
+            "SELECT DISTINCT user_id FROM campaigns WHERE user_id IS NOT NULL"
         ).fetchall()
+        user_ids = [r["user_id"] for r in rows]
 
-        for row in rows:
-            now = utcnow_iso()
-            if msg["is_unsubscribe"]:
-                con.execute(
-                    "UPDATE campaign_leads SET status='unsubscribed', unsubscribed_at=? WHERE id=?",
-                    (now, row["id"]),
-                )
-                con.execute(
-                    "INSERT OR IGNORE INTO suppressions(email, reason, source, created_at) VALUES(?,?,?,?)",
-                    (sender, "reply keyword", "imap", now),
-                )
-                con.commit()
-                add_event(con, row["campaign_id"], row["lead_id"], row["id"], "unsubscribed", "reply keyword")
-                unsubscribes += 1
-            elif not row["replied_at"]:
-                con.execute(
-                    """UPDATE campaign_leads SET status='replied', replied_at=?,
-                       reply_subject=?, reply_message_id=?, replies_count=replies_count+1
-                       WHERE id=?""",
-                    (now, msg["subject"], msg["message_id"], row["id"]),
-                )
-                con.commit()
-                add_event(con, row["campaign_id"], row["lead_id"], row["id"], "reply_detected", sender)
-                replies += 1
+    for uid in user_ids:
+        cfg = merge_user_config(base_cfg, con, uid)
+        if not cfg.get("IMAP_USER") or not cfg.get("IMAP_PASSWORD"):
+            continue
+        messages = email_service.scan_inbox(cfg, since)
+
+        for msg in messages:
+            sender = msg["sender"]
+            rows = con.execute(
+                """SELECT cl.*, l.email, l.id AS lead_id FROM campaign_leads cl
+                   JOIN leads l ON l.id=cl.lead_id
+                   JOIN campaigns c ON c.id=cl.campaign_id
+                   WHERE lower(l.email)=lower(?)
+                     AND cl.unsubscribed_at IS NULL
+                     AND c.user_id=?""",
+                (sender, uid),
+            ).fetchall()
+
+            for row in rows:
+                now = utcnow_iso()
+                if msg["is_unsubscribe"]:
+                    con.execute(
+                        "UPDATE campaign_leads SET status='unsubscribed', unsubscribed_at=? WHERE id=?",
+                        (now, row["id"]),
+                    )
+                    con.execute(
+                        "INSERT OR IGNORE INTO suppressions(email, reason, source, created_at) VALUES(?,?,?,?)",
+                        (sender, "reply keyword", "imap", now),
+                    )
+                    con.commit()
+                    add_event(con, row["campaign_id"], row["lead_id"], row["id"], "unsubscribed", "reply keyword")
+                    unsubscribes += 1
+                elif not row["replied_at"]:
+                    con.execute(
+                        """UPDATE campaign_leads SET status='replied', replied_at=?,
+                           reply_subject=?, reply_message_id=?, replies_count=replies_count+1
+                           WHERE id=?""",
+                        (now, msg["subject"], msg["message_id"], row["id"]),
+                    )
+                    con.commit()
+                    add_event(con, row["campaign_id"], row["lead_id"], row["id"], "reply_detected", sender)
+                    replies += 1
 
     return {"replies": replies, "unsubscribes": unsubscribes}
 
 
-def dashboard_stats(con, campaign_id=None):
+def dashboard_stats(con, campaign_id=None, user_id=None):
     clauses = []
     params = []
+    join = ""
+    if user_id is not None or campaign_id:
+        join = "JOIN campaigns c ON c.id=cl.campaign_id"
     if campaign_id:
         clauses.append("cl.campaign_id=?")
         params.append(campaign_id)
+    if user_id is not None:
+        clauses.append("c.user_id=?")
+        params.append(user_id)
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
 
     status_rows = con.execute(
-        f"SELECT cl.status, COUNT(*) c FROM campaign_leads cl {where} GROUP BY cl.status",
+        f"SELECT cl.status, COUNT(*) c FROM campaign_leads cl {join} {where} GROUP BY cl.status",
         params,
     ).fetchall()
     stats = {r["status"]: r["c"] for r in status_rows}
     total = sum(stats.values())
     sent_today = daily_sent_count(con, campaign_id)
     emails_sent = con.execute(
-        f"SELECT COALESCE(SUM(cl.emails_sent),0) s FROM campaign_leads cl {where}",
+        f"SELECT COALESCE(SUM(cl.emails_sent),0) s FROM campaign_leads cl {join} {where}",
         params,
     ).fetchone()["s"]
     replies = stats.get("replied", 0)

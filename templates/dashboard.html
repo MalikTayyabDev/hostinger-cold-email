@@ -3,6 +3,12 @@
 {% block content %}
 <h1>Dashboard</h1>
 
+{% if not smtp_ready %}
+<div class="flash warning">
+  Welcome! <a href="{{ url_for('settings.index') }}">Connect your email</a> to start sending campaigns.
+</div>
+{% endif %}
+
 <div class="card">
   <strong>Mode:</strong>
   {% if dry %}<span class="badge dry">DRY RUN — no emails will be sent</span>
@@ -38,17 +44,21 @@
 
 <div class="card">
   <h3>Sending</h3>
+  {% if smtp_ready %}
   <form action="{{ url_for('dashboard.send_batch_route') }}" method="post" class="form-inline">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="number" name="count" value="5" min="1" max="{{ limit }}" style="width:80px">
-    <button class="btn btn-primary" type="submit">Send eligible batch</button>
+    <button class="btn btn-primary" type="submit">Send batch</button>
   </form>
   <form action="{{ url_for('dashboard.send_one') }}" method="post" style="display:inline;margin-left:8px">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <button class="btn btn-secondary" type="submit">Send one</button>
   </form>
+  {% else %}
+  <p style="color:var(--muted)">Connect email in <a href="{{ url_for('settings.index') }}">Settings</a> to send.</p>
+  {% endif %}
   <p style="color:var(--muted);font-size:13px;margin-top:10px">
-    Run <code>python scheduler.py</code> for automatic sending every 15 minutes.
+    Or open a campaign and click <strong>Send Now</strong> for one-click sending.
   </p>
 </div>
 {% endblock %}

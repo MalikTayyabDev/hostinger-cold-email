@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Create account{% endblock %}
+{% block content %}
+<div class="login-page">
+  <div class="login-box">
+    <h1>Create account</h1>
+    <p style="color:var(--muted);margin-bottom:16px">Sign up to connect your email and run cold outreach campaigns.</p>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-row">
+        <label>Username</label>
+        <input name="username" required autofocus>
+      </div>
+      <div class="form-row">
+        <label>Password</label>
+        <input name="password" type="password" required minlength="8">
+      </div>
+      <div class="form-row">
+        <label>Confirm password</label>
+        <input name="password_confirm" type="password" required minlength="8">
+      </div>
+      <button class="btn btn-primary" type="submit">Create account</button>
+    </form>
+    <p style="margin-top:16px;font-size:14px">
+      Already have an account? <a href="{{ url_for('auth.login') }}">Sign in</a>
+    </p>
+  </div>
+</div>
+{% endblock %}
