@@ -7,22 +7,32 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+{% if session.get('logged_in') %}
 <div class="layout">
   <aside class="sidebar">
-    <h2>Cold Email</h2>
-    {% if session.get('logged_in') %}
-    <p style="color:var(--muted);font-size:13px;margin:0 0 12px">Hi, {{ session.get('username') }}</p>
-    {% endif %}
+    <div class="sidebar-brand">
+      <h2>Cold Email</h2>
+      <p>Outreach platform</p>
+    </div>
     <nav>
+      <div class="nav-label">Main</div>
       <a href="{{ url_for('dashboard.index') }}" class="{% if request.endpoint == 'dashboard.index' %}active{% endif %}">Dashboard</a>
       <a href="{{ url_for('campaigns.index') }}" class="{% if request.blueprint == 'campaigns' %}active{% endif %}">Campaigns</a>
-      <a href="{{ url_for('leads.index') }}" class="{% if request.blueprint == 'leads' %}active{% endif %}">Leads</a>
-      <a href="{{ url_for('leads.import_csv') }}">Import CSV</a>
+      <a href="{{ url_for('leads.index') }}" class="{% if request.endpoint == 'leads.index' %}active{% endif %}">Leads</a>
+      <div class="nav-label">Setup</div>
       <a href="{{ url_for('settings.index') }}" class="{% if request.blueprint == 'settings' %}active{% endif %}">Connect Email</a>
-      {% if session.get('logged_in') %}
-      <a href="{{ url_for('auth.logout') }}">Logout</a>
-      {% endif %}
+      <a href="{{ url_for('leads.import_csv') }}" class="nav-muted">Import CSV</a>
     </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="user-avatar">{{ (session.get('username') or '?')[0]|upper }}</div>
+        <div>
+          <span>{{ session.get('username') }}</span>
+          <small>Logged in</small>
+        </div>
+      </div>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary btn-sm btn-block">Logout</a>
+    </div>
   </aside>
   <main class="main">
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -33,5 +43,23 @@
     {% block content %}{% endblock %}
   </main>
 </div>
+{% else %}
+<div class="auth-shell">
+  <div style="width:100%;max-width:420px">
+    <div class="auth-brand">
+      <h2>Cold Email</h2>
+      <p>Simple cold outreach for your business</p>
+    </div>
+    <div class="auth-card">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+{% endif %}
 </body>
 </html>

@@ -1,12 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Leads{% endblock %}
 {% block content %}
-<h1>Leads</h1>
+<div class="page-header page-header-row">
+  <div>
+    <h1>Leads</h1>
+    <p>{{ total }} lead{{ 's' if total != 1 else '' }} in your lists</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('leads.import_csv') }}">Import CSV</a>
+</div>
 
-<div class="toolbar">
+<div class="card card-compact">
+<div class="toolbar" style="margin-bottom:0">
   <form method="get" class="form-inline">
-    <input name="q" placeholder="Search…" value="{{ search or '' }}" style="width:200px">
-    <select name="campaign_id" style="width:auto">
+    <input name="q" placeholder="Search name, email, company…" value="{{ search or '' }}" style="width:220px">
+    <select name="campaign_id" style="width:auto;min-width:160px">
       <option value="">All campaigns</option>
       {% for c in campaigns %}
       <option value="{{ c.id }}" {% if campaign_id == c.id %}selected{% endif %}>{{ c.name }}</option>
@@ -20,13 +27,12 @@
     </select>
     <button class="btn btn-secondary btn-sm" type="submit">Filter</button>
   </form>
-  <a class="btn btn-primary btn-sm" href="{{ url_for('leads.import_csv') }}">Import</a>
   <a class="btn btn-secondary btn-sm" href="{{ url_for('leads.export_csv', campaign_id=campaign_id, status=status) }}">Export</a>
-  <a class="btn btn-secondary btn-sm" href="{{ url_for('leads.export_csv', suppressed=1) }}">Export Suppressed</a>
+</div>
 </div>
 
 {% if rows %}
-<div class="card" style="padding:0;overflow-x:auto">
+<div class="card card-flush" style="overflow-x:auto">
 <table>
   <tr>
     <th>Name</th><th>Company</th><th>Email</th><th>Campaign</th>

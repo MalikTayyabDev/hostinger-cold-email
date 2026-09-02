@@ -1,69 +1,75 @@
 {% extends "base.html" %}
 {% block title %}{{ campaign.name }}{% endblock %}
 {% block content %}
-<h1>{{ campaign.name }}</h1>
-<p style="color:var(--muted)">{{ campaign.description or 'No description' }}</p>
+<div class="page-header page-header-row">
+  <div>
+    <h1>{{ campaign.name }}</h1>
+    <p>{{ campaign.description or 'No description' }}</p>
+  </div>
+  <span class="badge {{ campaign.status }}">{{ campaign.status }}</span>
+</div>
 
 {% if not smtp_ready %}
-<div class="flash warning">
+<div class="alert alert-warning">
   <a href="{{ url_for('settings.index') }}">Connect your email</a> before sending.
 </div>
 {% endif %}
 
 <div class="toolbar">
-  <span class="badge {{ campaign.status }}">{{ campaign.status }}</span>
   {% if campaign.status == 'draft' or campaign.status == 'paused' %}
-  <form action="{{ url_for('campaigns.start' if campaign.status == 'draft' else 'campaigns.resume', campaign_id=campaign.id) }}" method="post" style="display:inline">
+  <form action="{{ url_for('campaigns.start' if campaign.status == 'draft' else 'campaigns.resume', campaign_id=campaign.id) }}" method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button class="btn btn-primary btn-sm" type="submit">{{ 'Start Campaign' if campaign.status == 'draft' else 'Resume' }}</button>
+    <button class="btn btn-primary" type="submit">{{ 'Start campaign' if campaign.status == 'draft' else 'Resume' }}</button>
   </form>
   {% endif %}
   {% if campaign.status == 'active' %}
-  <form action="{{ url_for('campaigns.send_now', campaign_id=campaign.id) }}" method="post" style="display:inline">
+  <form action="{{ url_for('campaigns.send_now', campaign_id=campaign.id) }}" method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button class="btn btn-primary btn-sm" type="submit" {% if not smtp_ready %}disabled{% endif %}>Send Now</button>
+    <button class="btn btn-primary" type="submit" {% if not smtp_ready %}disabled{% endif %}>Send now</button>
   </form>
-  <form action="{{ url_for('campaigns.pause', campaign_id=campaign.id) }}" method="post" style="display:inline">
+  <form action="{{ url_for('campaigns.pause', campaign_id=campaign.id) }}" method="post">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button class="btn btn-secondary btn-sm" type="submit">Pause</button>
+    <button class="btn btn-secondary" type="submit">Pause</button>
   </form>
   {% endif %}
-  <a class="btn btn-sm btn-secondary" href="{{ url_for('campaigns.edit', campaign_id=campaign.id) }}">Edit</a>
-  <a class="btn btn-sm btn-secondary" href="{{ url_for('leads.import_csv') }}?campaign_id={{ campaign.id }}">Import Leads</a>
+  <a class="btn btn-secondary" href="{{ url_for('campaigns.edit', campaign_id=campaign.id) }}">Edit</a>
+  <a class="btn btn-secondary" href="{{ url_for('leads.import_csv') }}?campaign_id={{ campaign.id }}">Import leads</a>
 </div>
 
 {% if dry %}
-<p style="color:var(--muted);font-size:13px">Dry run is on — emails are logged but not sent. Turn off in <a href="{{ url_for('settings.index') }}">Settings</a>.</p>
+<p class="text-sm muted">Practice mode is on — emails are logged but not sent. Turn off in <a href="{{ url_for('settings.index') }}">Connect Email</a>.</p>
 {% endif %}
 
 <div class="grid grid-4">
-  <div class="stat"><b>{{ stats.get('pending', 0) + stats.get('active', 0) + stats.get('replied', 0) + stats.get('completed', 0) + stats.get('bounced', 0) + stats.get('unsubscribed', 0) }}</b><span>Total Leads</span></div>
-  <div class="stat"><b>{{ stats.emails_sent }}</b><span>Emails Sent</span></div>
+  <div class="stat"><b>{{ stats.get('pending', 0) + stats.get('active', 0) + stats.get('replied', 0) + stats.get('completed', 0) + stats.get('bounced', 0) + stats.get('unsubscribed', 0) }}</b><span>Total leads</span></div>
+  <div class="stat"><b>{{ stats.emails_sent }}</b><span>Emails sent</span></div>
   <div class="stat"><b>{{ stats.get('replied', 0) }}</b><span>Replies</span></div>
-  <div class="stat"><b>{{ stats.reply_rate }}%</b><span>Reply Rate</span></div>
+  <div class="stat"><b>{{ stats.reply_rate }}%</b><span>Reply rate</span></div>
 </div>
 
 <div class="card">
-  <h3>Quick start</h3>
-  <ol style="margin:0;padding-left:20px;color:var(--muted)">
-    <li><a href="{{ url_for('settings.index') }}">Connect your email</a></li>
-    <li><a href="{{ url_for('leads.import_csv') }}?campaign_id={{ campaign.id }}">Import leads (CSV)</a></li>
-    <li>Click <strong>Start Campaign</strong></li>
-    <li>Click <strong>Send Now</strong> to email eligible leads</li>
+  <h3>How to launch</h3>
+  <ol class="steps">
+    <li><a href="{{ url_for('settings.index') }}"><strong>Connect your email</strong></a></li>
+    <li><a href="{{ url_for('leads.import_csv') }}?campaign_id={{ campaign.id }}"><strong>Import leads</strong></a> (CSV)</li>
+    <li>Click <strong>Start campaign</strong></li>
+    <li>Click <strong>Send now</strong> to email eligible leads</li>
   </ol>
 </div>
 
-<div class="card">
-  <h3>Email Sequence</h3>
+<div class="card card-flush">
+  <div style="padding:16px 20px;border-bottom:1px solid var(--border)">
+    <h3 style="margin:0">Email sequence</h3>
+  </div>
   {% if steps %}
   <table>
-    <tr><th>Step</th><th>Subject</th><th>Delay (days)</th><th>Enabled</th><th></th></tr>
+    <tr><th>Step</th><th>Subject</th><th>Delay</th><th>On</th><th></th></tr>
     {% for s in steps %}
     <tr>
       <td>{{ s.step_number }}</td>
-      <td>{{ s.subject[:60] }}{% if s.subject|length > 60 %}…{% endif %}</td>
-      <td>{{ s.delay_days }}</td>
-      <td>{{ 'Yes' if s.enabled else 'No' }}</td>
+      <td>{{ s.subject[:55] }}{% if s.subject|length > 55 %}…{% endif %}</td>
+      <td>{{ s.delay_days }}d</td>
+      <td>{% if s.enabled %}<span class="badge active">Yes</span>{% else %}<span class="badge draft">No</span>{% endif %}</td>
       <td><a href="{{ url_for('campaigns.preview', campaign_id=campaign.id, step=s.step_number) }}">Preview</a></td>
     </tr>
     {% endfor %}
@@ -74,8 +80,8 @@
 </div>
 
 <form action="{{ url_for('campaigns.delete', campaign_id=campaign.id) }}" method="post"
-      onsubmit="return confirm('Delete this campaign and all its data?')">
+      onsubmit="return confirm('Delete this campaign and all its data?')" style="margin-top:8px">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <button class="btn btn-danger btn-sm" type="submit">Delete Campaign</button>
+  <button class="btn btn-danger btn-sm" type="submit">Delete campaign</button>
 </form>
 {% endblock %}

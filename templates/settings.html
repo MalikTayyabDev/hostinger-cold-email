@@ -1,54 +1,58 @@
 {% extends "base.html" %}
 {% block title %}Connect Email{% endblock %}
 {% block content %}
-<h1>Connect your email</h1>
-<p style="color:var(--muted);margin-bottom:20px">
-  Enter your Hostinger mailbox. SMTP and inbox sync are configured automatically.
-</p>
+<div class="page-header">
+  <h1>Connect your email</h1>
+  <p>Hostinger mailbox — SMTP and inbox sync configured automatically.</p>
+</div>
 
 {% if not smtp_ready %}
-<div class="flash warning">Connect your email to start sending campaigns.</div>
+<div class="alert alert-warning">Enter your email below to start sending campaigns.</div>
 {% else %}
-<div class="flash success">Email connected — you're ready to send.</div>
+<div class="alert alert-success">Email connected — you're ready to send.</div>
 {% endif %}
 
-<form method="post" class="card" style="max-width:480px">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-
-  <div class="form-row">
-    <label>Your email</label>
-    <input name="email" type="email" value="{{ form.email }}" placeholder="you@yourdomain.com" required autofocus>
-  </div>
-
-  <div class="form-row">
-    <label>Email password</label>
-    <input name="password" type="password" value="{{ form.password }}"
-           placeholder="{% if form.password %}Leave blank to keep current{% else %}Your mailbox password{% endif %}">
-  </div>
-
-  <div class="form-row">
-    <label>Your name</label>
-    <input name="from_name" value="{{ form.from_name }}" placeholder="John Smith">
-    <small style="color:var(--muted)">Shown as the sender on outgoing emails.</small>
-  </div>
-
-  <div class="form-row">
-    <label>
-      <input type="checkbox" name="dry_run" value="1" {% if form.dry_run %}checked{% endif %}>
-      Practice mode — don't actually send emails yet
-    </label>
-  </div>
-
-  <button class="btn btn-primary" type="submit">Save &amp; connect</button>
-</form>
-
-<div class="card" style="max-width:480px">
-  <h3>Test it</h3>
-  <p style="color:var(--muted);font-size:14px;margin-bottom:12px">Save first, then send a test email to confirm everything works.</p>
-  <form action="{{ url_for('settings.test_smtp') }}" method="post" class="form-inline">
+<div class="settings-layout">
+  <form method="post" class="card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input name="test_email" type="email" placeholder="Send test to..." value="{{ form.test_email }}" style="width:100%;max-width:280px">
-    <button class="btn btn-secondary" type="submit" {% if not smtp_ready %}disabled{% endif %}>Send test</button>
+
+    <div class="form-row">
+      <label>Your email</label>
+      <input name="email" type="email" value="{{ form.email }}" placeholder="you@yourdomain.com" required autofocus>
+    </div>
+
+    <div class="form-row">
+      <label>Email password</label>
+      <input name="password" type="password" value="{{ form.password }}"
+             placeholder="{% if form.password %}Leave blank to keep current{% else %}Your mailbox password{% endif %}">
+    </div>
+
+    <div class="form-row">
+      <label>Your name</label>
+      <input name="from_name" value="{{ form.from_name }}" placeholder="John Smith">
+      <span class="hint">Shown as the sender on outgoing emails.</span>
+    </div>
+
+    <div class="form-row">
+      <label class="checkbox-row">
+        <input type="checkbox" name="dry_run" value="1" {% if form.dry_run %}checked{% endif %}>
+        <span>Practice mode — log emails but don't send yet</span>
+      </label>
+    </div>
+
+    <button class="btn btn-primary btn-block" type="submit">Save &amp; connect</button>
   </form>
+
+  <div class="card">
+    <h3>Test connection</h3>
+    <p class="hint" style="margin-bottom:14px">Save first, then send a test email.</p>
+    <form action="{{ url_for('settings.test_smtp') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-row">
+        <input name="test_email" type="email" placeholder="Send test to..." value="{{ form.test_email }}">
+      </div>
+      <button class="btn btn-secondary" type="submit" {% if not smtp_ready %}disabled{% endif %}>Send test email</button>
+    </form>
+  </div>
 </div>
 {% endblock %}

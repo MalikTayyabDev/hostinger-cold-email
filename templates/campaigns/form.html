@@ -1,13 +1,17 @@
 {% extends "base.html" %}
-{% block title %}New Campaign{% endblock %}
+{% block title %}{% if campaign %}Edit{% else %}New{% endif %} Campaign{% endblock %}
 {% block content %}
-<h1>New Campaign</h1>
-<div class="card">
+<div class="page-header">
+  <h1>{% if campaign %}Edit campaign{% else %}New campaign{% endif %}</h1>
+  <p>{% if campaign %}Update name and description{% else %}Start with a name — sequence steps are added automatically{% endif %}</p>
+</div>
+<div class="card" style="max-width:560px">
 <form method="post">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <div class="form-row"><label>Name</label><input name="name" required></div>
-  <div class="form-row"><label>Description</label><textarea name="description"></textarea></div>
-  <button class="btn btn-primary" type="submit">Create</button>
+  <div class="form-row"><label>Campaign name</label><input name="name" required placeholder="Website Outreach"></div>
+  <div class="form-row"><label>Description (optional)</label><textarea name="description" placeholder="Who are you reaching out to?"></textarea></div>
+  <button class="btn btn-primary" type="submit">{% if campaign %}Save{% else %}Create campaign{% endif %}</button>
+  {% if campaign %}<a class="btn btn-secondary" href="{{ url_for('campaigns.detail', campaign_id=campaign.id) }}">Cancel</a>{% endif %}
 </form>
 </div>
 {% endblock %}
