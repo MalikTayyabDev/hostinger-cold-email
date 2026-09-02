@@ -15,10 +15,34 @@ from routes.settings import register_settings
 from routes.unsubscribe import register_unsubscribe
 
 
+def _error_app(message):
+    app = Flask(__name__)
+    app.secret_key = "error"
+
+    @app.route("/", defaults={"path": ""})
+    @app.route("/<path:path>")
+    def startup_error(path):
+        return (
+            "<h1>Startup error</h1>"
+            f"<pre>{message}</pre>"
+            "<p>Check DATABASE_URL in Vercel env vars.</p>"
+        ), 500
+
+    @app.route("/health")
+    def health():
+        return {"ok": False, "error": message}, 500
+
+    return app
+
+
 def create_app():
-    cfg = load_config()
     log = setup_logging()
-    con = connect(cfg.get("DATABASE") or "campaign.db")
+    try:
+        cfg = load_config()
+        con = connect(cfg.get("DATABASE") or "campaign.db")
+    except Exception as exc:
+        log.error("Database connection failed: %s", exc)
+        return _error_app(f"{type(exc).__name__}: {exc}")
 
     app = Flask(__name__)
     app.secret_key = cfg["SECRET_KEY"]
