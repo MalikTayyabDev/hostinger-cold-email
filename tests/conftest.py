@@ -13,7 +13,8 @@ def no_sleep(monkeypatch):
 
 
 @pytest.fixture
-def db():
+def db(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     from database.db import connect

@@ -406,7 +406,8 @@ def _migrate_multi_user(con):
 
 
 def connect(path="campaign.db"):
-    if os.getenv("DATABASE_URL"):
+    # Explicit sqlite path (e.g. tests) must not be overridden by DATABASE_URL.
+    if os.getenv("DATABASE_URL") and path == "campaign.db":
         from database.adapter import connect_postgres
         con = connect_postgres(os.getenv("DATABASE_URL"))
         # Migrations are slow on Supabase pooler — run migration_multi_user.sql manually.

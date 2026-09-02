@@ -29,7 +29,11 @@ def register_settings(app, con, cfg):
                 data["DRY_RUN"] = "true"
             else:
                 data["DRY_RUN"] = "false"
-            save_user_settings(con, user_id, data)
+            try:
+                save_user_settings(con, user_id, data)
+            except Exception as exc:
+                flash(f"Could not save settings: {exc}", "error")
+                return redirect(url_for("settings.index"))
             flash("Email settings saved.", "success")
             return redirect(url_for("settings.index"))
 

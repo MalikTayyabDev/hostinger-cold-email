@@ -63,9 +63,6 @@ def is_bounce_error(exc):
     return any(re.search(p, text) for p in BOUNCE_PATTERNS)
 
 
-BUILD_ID = "2026-09-02c"
-
-
 def _safe_int(val, default):
     if val is None or str(val).strip() == "":
         return int(default)

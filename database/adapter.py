@@ -79,7 +79,7 @@ class PostgresConnection:
         is_insert = head.startswith("INSERT")
 
         run_sql = sql
-        if is_insert and "RETURNING" not in head:
+        if is_insert and "RETURNING" not in head and "ON CONFLICT" not in head:
             run_sql = sql.rstrip().rstrip(";") + " RETURNING id"
 
         cur = self._raw.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
