@@ -26,6 +26,7 @@ def _error_app(message):
             "<h1>Startup error</h1>"
             f"<pre>{message}</pre>"
             "<p>Check DATABASE_URL in Vercel env vars.</p>"
+            "<p>If this is a timeout, run <code>supabase/migration_multi_user.sql</code> in Supabase SQL Editor, then redeploy.</p>"
         ), 500
 
     @app.route("/health")

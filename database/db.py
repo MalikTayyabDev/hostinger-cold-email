@@ -409,8 +409,10 @@ def connect(path="campaign.db"):
     if os.getenv("DATABASE_URL"):
         from database.adapter import connect_postgres
         con = connect_postgres(os.getenv("DATABASE_URL"))
-        _migrate_multi_user(con)
-        _ensure_default_campaign(con)
+        # Migrations are slow on Supabase pooler — run migration_multi_user.sql manually.
+        if not os.getenv("VERCEL"):
+            _migrate_multi_user(con)
+            _ensure_default_campaign(con)
         return con
 
     con = sqlite3.connect(path, check_same_thread=False)
