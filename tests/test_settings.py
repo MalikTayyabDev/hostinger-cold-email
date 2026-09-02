@@ -87,6 +87,30 @@ def test_settings_form_defaults_masks_passwords(db, cfg):
     assert form["IMAP_PASSWORD"] == "********"
 
 
+def test_user_settings_batch_save(db):
+    user_id = _create_user(db, "batch_user")
+    save_user_settings(db, user_id, {
+        "SMTP_HOST": "smtp.hostinger.com",
+        "SMTP_PORT": "465",
+        "SMTP_ENCRYPTION": "ssl",
+        "SMTP_USER": "a@b.com",
+        "SMTP_PASSWORD": "pass1",
+        "FROM_EMAIL": "a@b.com",
+        "FROM_NAME": "A",
+        "IMAP_HOST": "imap.hostinger.com",
+        "IMAP_PORT": "993",
+        "IMAP_USER": "a@b.com",
+        "IMAP_PASSWORD": "pass1",
+        "IMAP_FOLDER": "INBOX",
+        "TEST_EMAIL": "a@b.com",
+        "DRY_RUN": "true",
+        "DAILY_SEND_LIMIT": "20",
+    })
+    stored = get_user_settings(db, user_id)
+    assert len(stored) >= 10
+    assert stored["SMTP_PASSWORD"] == "pass1"
+
+
 def test_build_settings_from_simple_form(cfg):
     data = build_settings_from_form({
         "email": "Me@Example.com",

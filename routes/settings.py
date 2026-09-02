@@ -18,7 +18,15 @@ def register_settings(app, con, cfg):
     @login_required
     def index():
         user_id = get_current_user_id()
-        stored = get_user_settings(con, user_id)
+        if not user_id:
+            flash("Please log in again.", "error")
+            return redirect(url_for("auth.login"))
+
+        try:
+            stored = get_user_settings(con, user_id)
+        except Exception as exc:
+            flash(f"Database error: {exc}. Run migration_multi_user.sql in Supabase.", "error")
+            stored = {}
 
         if request.method == "POST":
             validate_csrf()
@@ -31,8 +39,13 @@ def register_settings(app, con, cfg):
             flash("Email connected.", "success")
             return redirect(url_for("settings.index"))
 
-        user_cfg = get_user_cfg(con, cfg, user_id)
-        form = simple_form_view(cfg, stored)
+        try:
+            user_cfg = get_user_cfg(con, cfg, user_id)
+            form = simple_form_view(cfg, stored)
+        except Exception as exc:
+            flash(f"Could not load settings: {exc}", "error")
+            user_cfg = cfg
+            form = simple_form_view(cfg, {})
         return render_template(
             "settings.html",
             form=form,

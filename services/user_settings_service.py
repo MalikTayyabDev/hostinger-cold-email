@@ -84,7 +84,7 @@ def get_user_settings(con, user_id):
 
 
 def save_user_settings(con, user_id, data):
-    existing = get_user_settings(con, user_id)
+    rows = []
     for key in SETTING_KEYS:
         if key not in data:
             continue
@@ -93,11 +93,21 @@ def save_user_settings(con, user_id, data):
             continue
         if value is None:
             continue
-        con.execute(
-            """INSERT INTO user_settings(user_id, key, value) VALUES(?,?,?)
-               ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value""",
-            (user_id, key, str(value)),
-        )
+        rows.append((user_id, key, str(value)))
+
+    if not rows:
+        return get_user_settings(con, user_id)
+
+    backend = getattr(con, "backend", "sqlite")
+    if backend == "postgres" and hasattr(con, "executemany_upsert_settings"):
+        con.executemany_upsert_settings(rows)
+    else:
+        for row in rows:
+            con.execute(
+                """INSERT INTO user_settings(user_id, key, value) VALUES(?,?,?)
+                   ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value""",
+                row,
+            )
     con.commit()
     return get_user_settings(con, user_id)
 

@@ -18,7 +18,6 @@ def _normalize_database_url(database_url):
     is_pooler = "pooler.supabase.com" in url or ":6543/" in url or url.rstrip("/").endswith(":6543")
 
     parsed = urlparse(url)
-    # psycopg2/libpq rejects pgbouncer=; disable prepared statements for pooler instead.
     query = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=True) if k.lower() != "pgbouncer"]
     if not any(k.lower() == "sslmode" for k, _ in query):
         query.append(("sslmode", "require"))
@@ -42,24 +41,25 @@ def _translate_sql_postgres(sql):
 
 
 class _Result:
-    def __init__(self, cursor, is_select=False, is_insert=False):
-        self._cursor = cursor
-        self.rowcount = cursor.rowcount
-        self.lastrowid = None
+    def __init__(self, rows=None, rowcount=0, lastrowid=None, is_select=False):
+        self._rows = list(rows or [])
+        self._idx = 0
+        self.rowcount = rowcount
+        self.lastrowid = lastrowid
         self._is_select = is_select
-        if is_insert:
-            row = cursor.fetchone()
-            if row:
-                self.lastrowid = row.get("id")
 
     def fetchone(self):
-        if self._is_select:
-            return self._cursor.fetchone()
+        if self._is_select and self._idx < len(self._rows):
+            row = self._rows[self._idx]
+            self._idx += 1
+            return row
         return None
 
     def fetchall(self):
         if self._is_select:
-            return self._cursor.fetchall()
+            remaining = self._rows[self._idx :]
+            self._idx = len(self._rows)
+            return remaining
         return []
 
 
@@ -83,9 +83,35 @@ class PostgresConnection:
             run_sql = sql.rstrip().rstrip(";") + " RETURNING id"
 
         cur = self._raw.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute(run_sql, params)
-        fetch_insert_id = "RETURNING" in run_sql.upper()
-        return _Result(cur, is_select=is_select, is_insert=fetch_insert_id)
+        try:
+            cur.execute(run_sql, params)
+            if is_select:
+                return _Result(rows=cur.fetchall(), rowcount=cur.rowcount, is_select=True)
+            lastrowid = None
+            if "RETURNING" in run_sql.upper():
+                row = cur.fetchone()
+                if row:
+                    lastrowid = row.get("id")
+            return _Result(rowcount=cur.rowcount, lastrowid=lastrowid)
+        finally:
+            cur.close()
+
+    def executemany_upsert_settings(self, rows):
+        """Batch upsert user_settings in one round-trip (serverless-safe)."""
+        if not rows:
+            return
+        import psycopg2.extras
+
+        cur = self._raw.cursor()
+        try:
+            psycopg2.extras.execute_values(
+                cur,
+                """INSERT INTO user_settings (user_id, key, value) VALUES %s
+                   ON CONFLICT (user_id, key) DO UPDATE SET value = excluded.value""",
+                rows,
+            )
+        finally:
+            cur.close()
 
     def commit(self):
         self._raw.commit()
