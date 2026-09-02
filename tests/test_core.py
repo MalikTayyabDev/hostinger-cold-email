@@ -81,8 +81,23 @@ def test_suppression_blocks_send(db, cfg):
 
 
 def test_health_endpoint():
-    from app import app
-    client = app.test_client()
+    from app import create_app
+
+    client = create_app().test_client()
     r = client.get("/health")
     assert r.status_code == 200
     assert r.get_json()["ok"] is True
+
+
+def test_auth_pages_render(monkeypatch):
+    monkeypatch.setenv("VERCEL", "1")
+    from app import create_app
+
+    client = create_app().test_client()
+    login = client.get("/login")
+    assert login.status_code == 200
+    assert b"Sign in" in login.data
+
+    register = client.get("/register")
+    assert register.status_code == 200
+    assert b"Create" in register.data
