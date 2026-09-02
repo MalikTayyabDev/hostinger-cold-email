@@ -11,15 +11,5 @@
       "src": "/(.*)",
       "dest": "api/index.py"
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/inbox",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/send",
-      "schedule": "*/15 * * * *"
-    }
   ]
 }

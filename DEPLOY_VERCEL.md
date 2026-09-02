@@ -83,20 +83,22 @@ Optional (for Supabase dashboard/API later):
 
 ## Phase 4 — Cron jobs (automatic sending)
 
-`vercel.json` already configures:
+> **Vercel Hobby** does not support 15-minute crons. See **[CRON_SETUP.md](CRON_SETUP.md)** for free alternatives (cron-job.org).
 
-| Cron | Schedule | Purpose |
-|------|----------|---------|
-| `/api/cron/inbox` | Every 15 min | Check IMAP for replies/unsubscribes |
-| `/api/cron/send` | Every 15 min | Send **1** eligible email |
+On **Vercel Pro**, add to `vercel.json`:
 
-> **Note:** Vercel Cron on frequent schedules may require **Pro plan**. Each send cron sends only 1 email per run (serverless-safe).
-
-Cron endpoints require header:
+```json
+"crons": [
+  { "path": "/api/cron/inbox", "schedule": "*/15 * * * *" },
+  { "path": "/api/cron/send", "schedule": "*/15 * * * *" }
+]
 ```
+
+Cron endpoints require:
+
+```text
 Authorization: Bearer YOUR_CRON_SECRET
 ```
-Vercel Cron automatically sends this when `CRON_SECRET` is set.
 
 ---
 
