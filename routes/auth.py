@@ -1,7 +1,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from config import auth_enabled
-from routes.auth_helpers import generate_csrf_token, login_required, register_user, validate_csrf, verify_login
+from routes.auth_helpers import generate_csrf_token, is_authenticated, login_required, register_user, validate_csrf, verify_login
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -14,7 +14,7 @@ def login():
     if not auth_enabled(cfg):
         return redirect(url_for("dashboard.index"))
 
-    if session.get("logged_in"):
+    if is_authenticated():
         return redirect(url_for("dashboard.index"))
 
     if request.method == "POST":
@@ -46,7 +46,7 @@ def register():
         flash("Registration is disabled.", "error")
         return redirect(url_for("auth.login"))
 
-    if session.get("logged_in"):
+    if is_authenticated():
         return redirect(url_for("dashboard.index"))
 
     if request.method == "POST":
@@ -70,7 +70,6 @@ def register():
 
 
 @auth_bp.route("/logout")
-@login_required
 def logout():
     session.clear()
     flash("Logged out.", "success")

@@ -22,6 +22,15 @@ def init_admin_user(con, cfg):
     con.commit()
 
 
+def is_authenticated():
+    return bool(session.get("logged_in") and session.get("user_id"))
+
+
+def clear_stale_session():
+    if session.get("logged_in") and not session.get("user_id"):
+        session.clear()
+
+
 def get_current_user_id():
     return session.get("user_id")
 
@@ -40,7 +49,8 @@ def login_required(f):
         cfg = current_app.config["CFG"]
         if not auth_enabled(cfg):
             return f(*args, **kwargs)
-        if session.get("logged_in") and session.get("user_id"):
+        clear_stale_session()
+        if is_authenticated():
             return f(*args, **kwargs)
         return redirect(url_for("auth.login", next=request.path))
 
