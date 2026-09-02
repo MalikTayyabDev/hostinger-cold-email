@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ lead.full_name or lead.email }}{% endblock %}
+{% block content %}
+<h1>{{ lead.full_name or lead.email }}</h1>
+
+<div class="toolbar">
+  <a class="btn btn-secondary btn-sm" href="{{ url_for('leads.edit', lead_id=lead.id) }}">Edit</a>
+  <a class="btn btn-secondary btn-sm" href="{{ url_for('leads.index') }}">Back to list</a>
+</div>
+
+<div class="grid grid-3">
+  <div class="card">
+    <h3>Contact</h3>
+    <p><strong>Email:</strong> {{ lead.email }}</p>
+    <p><strong>Company:</strong> {{ lead.company or '—' }}</p>
+    <p><strong>Website:</strong> {{ lead.website or '—' }}</p>
+    <p><strong>Industry:</strong> {{ lead.industry or '—' }}</p>
+    <p><strong>Location:</strong> {{ lead.location or '—' }}</p>
+    <p><strong>Tags:</strong> {{ lead.tags or '—' }}</p>
+  </div>
+  <div class="card">
+    <h3>Campaigns</h3>
+    {% for m in memberships %}
+    <p>
+      <a href="{{ url_for('leads.detail', lead_id=lead.id, cl=m.id) }}">{{ m.campaign_name }}</a>
+      — <span class="badge {{ m.status }}">{{ m.status }}</span>
+      (step {{ m.sequence_step }}, sent {{ m.emails_sent }})
+    </p>
+    {% endfor %}
+  </div>
+  <div class="card">
+    <h3>Notes</h3>
+    <p>{{ lead.notes or 'No notes.' }}</p>
+    <p style="color:var(--muted);font-size:13px"><strong>Custom line:</strong> {{ lead.custom_line or '—' }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Timeline</h3>
+  {% if timeline %}
+  <ul class="timeline">
+    {% for ev in timeline %}
+    <li>
+      <span class="date">{{ ev.created_at[:10] }}</span> —
+      {{ ev.event_type|event_label }}
+      {% if ev.details %}<span style="color:var(--muted)">({{ ev.details[:80] }})</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No events yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

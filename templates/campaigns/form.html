@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}New Campaign{% endblock %}
+{% block content %}
+<h1>New Campaign</h1>
+<div class="card">
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="form-row"><label>Name</label><input name="name" required></div>
+  <div class="form-row"><label>Description</label><textarea name="description"></textarea></div>
+  <button class="btn btn-primary" type="submit">Create</button>
+</form>
+</div>
+{% endblock %}

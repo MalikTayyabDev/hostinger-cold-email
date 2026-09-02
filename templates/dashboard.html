@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="card">
+  <strong>Mode:</strong>
+  {% if dry %}<span class="badge dry">DRY RUN — no emails will be sent</span>
+  {% else %}<span class="badge live">LIVE SENDING</span>{% endif %}
+
+  <form class="form-inline" style="margin-top:12px" method="get">
+    <label style="margin:0">Campaign:</label>
+    <select name="campaign_id" onchange="this.form.submit()" style="width:auto">
+      <option value="">All campaigns</option>
+      {% for c in campaigns %}
+      <option value="{{ c.id }}" {% if campaign_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+      {% endfor %}
+    </select>
+  </form>
+
+  <p style="margin:12px 0 0;color:var(--muted);font-size:14px">
+    Today's sends: <strong>{{ daily }} / {{ limit }}</strong> — Remaining: <strong>{{ remaining }}</strong>
+  </p>
+  <div class="progress"><div class="progress-bar" style="width:{{ (daily / limit * 100) if limit else 0 }}%"></div></div>
+</div>
+
+<div class="grid grid-4">
+  <div class="stat"><b>{{ stats.total_leads }}</b><span>Total Leads</span></div>
+  <div class="stat"><b>{{ stats.pending }}</b><span>Pending</span></div>
+  <div class="stat"><b>{{ stats.active }}</b><span>Active</span></div>
+  <div class="stat"><b>{{ stats.sent_today }}</b><span>Sent Today</span></div>
+  <div class="stat"><b>{{ stats.replied }}</b><span>Replies</span></div>
+  <div class="stat"><b>{{ stats.reply_rate }}%</b><span>Reply Rate</span></div>
+  <div class="stat"><b>{{ stats.bounced }}</b><span>Bounced</span></div>
+  <div class="stat"><b>{{ stats.unsubscribed }}</b><span>Unsubscribed</span></div>
+  <div class="stat"><b>{{ stats.completed }}</b><span>Completed</span></div>
+</div>
+
+<div class="card">
+  <h3>Sending</h3>
+  <form action="{{ url_for('dashboard.send_batch_route') }}" method="post" class="form-inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="number" name="count" value="5" min="1" max="{{ limit }}" style="width:80px">
+    <button class="btn btn-primary" type="submit">Send eligible batch</button>
+  </form>
+  <form action="{{ url_for('dashboard.send_one') }}" method="post" style="display:inline;margin-left:8px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="btn btn-secondary" type="submit">Send one</button>
+  </form>
+  <p style="color:var(--muted);font-size:13px;margin-top:10px">
+    Run <code>python scheduler.py</code> for automatic sending every 15 minutes.
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,8 @@
+.env
+*.db
+__pycache__/
+.venv/
+logs/
+backups/
+.vercel/
+.pytest_cache/

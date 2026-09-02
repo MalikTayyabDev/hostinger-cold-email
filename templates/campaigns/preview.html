@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Preview{% endblock %}
+{% block content %}
+<h1>Email Preview — Step {{ step.step_number }}</h1>
+
+<div class="card">
+  <p><strong>From:</strong> {{ from_name }} &lt;{{ from_email }}&gt;</p>
+  <p><strong>To:</strong> {{ lead.email }} ({{ lead.full_name or lead.first_name }})</p>
+  <p><strong>Subject:</strong> {{ subject }}</p>
+  <hr>
+  <pre style="white-space:pre-wrap;font-family:inherit">{{ body }}</pre>
+</div>
+
+<form action="{{ url_for('campaigns.test_send', campaign_id=campaign_id) }}" method="post"
+      onsubmit="return confirm('Send a TEST email to your configured address?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="step_number" value="{{ step.step_number }}">
+  <button class="btn btn-primary" type="submit">Send Test Email</button>
+  <a class="btn btn-secondary" href="{{ url_for('campaigns.detail', campaign_id=campaign_id) }}">Back</a>
+</form>
+<p style="color:var(--muted);font-size:13px;margin-top:10px">
+  Test emails go to TEST_EMAIL (or FROM_EMAIL) in .env. This will not send to the lead.
+</p>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Edit Lead{% endblock %}
+{% block content %}
+<h1>Edit Lead</h1>
+<div class="card">
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="grid grid-3">
+    <div class="form-row"><label>First name</label><input name="first_name" value="{{ lead.first_name or '' }}"></div>
+    <div class="form-row"><label>Last name</label><input name="last_name" value="{{ lead.last_name or '' }}"></div>
+    <div class="form-row"><label>Full name</label><input name="full_name" value="{{ lead.full_name or '' }}"></div>
+  </div>
+  <div class="grid grid-3">
+    <div class="form-row"><label>Email</label><input name="email" value="{{ lead.email }}" required></div>
+    <div class="form-row"><label>Company</label><input name="company" value="{{ lead.company or '' }}"></div>
+    <div class="form-row"><label>Website</label><input name="website" value="{{ lead.website or '' }}"></div>
+  </div>
+  <div class="grid grid-3">
+    <div class="form-row"><label>Industry</label><input name="industry" value="{{ lead.industry or '' }}"></div>
+    <div class="form-row"><label>Location</label><input name="location" value="{{ lead.location or '' }}"></div>
+    <div class="form-row"><label>Tags</label><input name="tags" value="{{ lead.tags or '' }}"></div>
+  </div>
+  <div class="form-row"><label>Custom line</label><textarea name="custom_line">{{ lead.custom_line or '' }}</textarea></div>
+  <div class="form-row"><label>Notes</label><textarea name="notes">{{ lead.notes or '' }}</textarea></div>
+  <button class="btn btn-primary" type="submit">Save</button>
+</form>
+</div>
+{% endblock %}

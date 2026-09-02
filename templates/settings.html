@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+<p style="color:var(--muted);margin-bottom:20px">
+  Configuration is loaded from <code>.env</code>. Edit that file and restart the app to change values.
+  Passwords are never shown in plain text.
+</p>
+
+<div class="card">
+  <h3>SMTP</h3>
+  <div class="grid grid-3">
+    <p><strong>Host:</strong> {{ settings.SMTP_HOST }}</p>
+    <p><strong>Port:</strong> {{ settings.SMTP_PORT }}</p>
+    <p><strong>Encryption:</strong> {{ settings.SMTP_ENCRYPTION }}</p>
+    <p><strong>Username:</strong> {{ settings.SMTP_USER or '—' }}</p>
+    <p><strong>Password:</strong> {{ settings.SMTP_PASSWORD or '—' }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <h3>IMAP</h3>
+  <div class="grid grid-3">
+    <p><strong>Host:</strong> {{ settings.IMAP_HOST }}</p>
+    <p><strong>Port:</strong> {{ settings.IMAP_PORT }}</p>
+    <p><strong>Folder:</strong> {{ settings.IMAP_FOLDER }}</p>
+    <p><strong>Username:</strong> {{ settings.IMAP_USER or '—' }}</p>
+    <p><strong>Password:</strong> {{ settings.IMAP_PASSWORD or '—' }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Sending</h3>
+  <div class="grid grid-3">
+    <p><strong>Daily limit:</strong> {{ settings.DAILY_SEND_LIMIT }}</p>
+    <p><strong>Min delay:</strong> {{ settings.SEND_DELAY_MIN_SECONDS }}s</p>
+    <p><strong>Max delay:</strong> {{ settings.SEND_DELAY_MAX_SECONDS }}s</p>
+    <p><strong>Max follow-ups:</strong> {{ settings.MAX_FOLLOWUPS }}</p>
+    <p><strong>Dry run:</strong> {{ settings.DRY_RUN }}</p>
+    <p><strong>Public URL:</strong> {{ settings.PUBLIC_BASE_URL or '—' }}</p>
+    <p><strong>Test email:</strong> {{ settings.TEST_EMAIL or '—' }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Security</h3>
+  <p><strong>Dashboard auth:</strong> {{ 'Enabled' if settings.AUTH_ENABLED else 'Disabled (set ADMIN_USERNAME + ADMIN_PASSWORD in .env)' }}</p>
+  <p><strong>Bind address:</strong> 127.0.0.1 (default — localhost only)</p>
+</div>
+{% endblock %}

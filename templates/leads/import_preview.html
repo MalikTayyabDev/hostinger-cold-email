@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Import Preview{% endblock %}
+{% block content %}
+<h1>Import Preview</h1>
+
+<div class="grid grid-4">
+  <div class="stat"><b style="color:var(--success)">{{ preview.valid }}</b><span>Valid</span></div>
+  <div class="stat"><b style="color:var(--error)">{{ preview.invalid }}</b><span>Invalid</span></div>
+  <div class="stat"><b style="color:var(--warning)">{{ preview.duplicates }}</b><span>Duplicates</span></div>
+  <div class="stat"><b>{{ preview.suppressed }}</b><span>Suppressed</span></div>
+</div>
+
+<div class="card">
+  <h3>Sample rows</h3>
+  <table>
+    <tr><th>Email</th><th>Status</th></tr>
+    {% for row in preview.preview %}
+    <tr><td>{{ row.email }}</td><td>{{ row.status }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="confirm" value="1">
+  <input type="hidden" name="campaign_id" value="{{ campaign_id }}">
+  <p style="color:var(--muted);font-size:13px">Re-upload the same CSV file to confirm import.</p>
+  <input type="file" name="file" accept=".csv" required>
+  <button class="btn btn-primary" type="submit" style="margin-top:10px">Confirm Import</button>
+</form>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Import Leads{% endblock %}
+{% block content %}
+<h1>Import Leads</h1>
+<div class="card">
+<form method="post" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="form-row">
+    <label>Campaign</label>
+    <select name="campaign_id" required>
+      {% for c in campaigns %}
+      <option value="{{ c.id }}">{{ c.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="form-row">
+    <label>CSV file</label>
+    <input type="file" name="file" accept=".csv" required>
+  </div>
+  <p style="color:var(--muted);font-size:13px">
+    Columns: name, first_name, last_name, company, email, website, industry, location, custom_line, tags
+  </p>
+  <button class="btn btn-primary" type="submit">Preview Import</button>
+</form>
+</div>
+{% endblock %}

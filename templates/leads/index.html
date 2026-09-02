@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Leads{% endblock %}
+{% block content %}
+<h1>Leads</h1>
+
+<div class="toolbar">
+  <form method="get" class="form-inline">
+    <input name="q" placeholder="Search…" value="{{ search or '' }}" style="width:200px">
+    <select name="campaign_id" style="width:auto">
+      <option value="">All campaigns</option>
+      {% for c in campaigns %}
+      <option value="{{ c.id }}" {% if campaign_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="status" style="width:auto">
+      <option value="">All statuses</option>
+      {% for s in ['pending','active','replied','bounced','unsubscribed','completed','paused'] %}
+      <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-secondary btn-sm" type="submit">Filter</button>
+  </form>
+  <a class="btn btn-primary btn-sm" href="{{ url_for('leads.import_csv') }}">Import</a>
+  <a class="btn btn-secondary btn-sm" href="{{ url_for('leads.export_csv', campaign_id=campaign_id, status=status) }}">Export</a>
+  <a class="btn btn-secondary btn-sm" href="{{ url_for('leads.export_csv', suppressed=1) }}">Export Suppressed</a>
+</div>
+
+{% if rows %}
+<div class="card" style="padding:0;overflow-x:auto">
+<table>
+  <tr>
+    <th>Name</th><th>Company</th><th>Email</th><th>Campaign</th>
+    <th>Status</th><th>Last Contact</th><th>Next Action</th><th></th>
+  </tr>
+  {% for r in rows %}
+  <tr>
+    <td><a href="{{ url_for('leads.detail', lead_id=r.id) }}">{{ r.full_name or r.first_name or '—' }}</a></td>
+    <td>{{ r.company or '—' }}</td>
+    <td>{{ r.email }}</td>
+    <td>{{ r.campaign_name }}</td>
+    <td><span class="badge {{ r.status }}">{{ r.status }}</span></td>
+    <td>{{ (r.last_contacted_at or '—')[:10] }}</td>
+    <td>{{ (r.next_action_at or '—')[:10] }}</td>
+    <td>
+      {% if r.status not in ['unsubscribed','replied','bounced','completed'] %}
+      <form action="{{ url_for('leads.suppress', campaign_lead_id=r.campaign_lead_id) }}" method="post" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn btn-sm btn-danger" type="submit">Suppress</button>
+      </form>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+<p style="color:var(--muted);font-size:13px">{{ total }} lead(s) — page {{ page }} of {{ pages }}</p>
+{% if page > 1 %}<a href="?page={{ page - 1 }}&campaign_id={{ campaign_id or '' }}&status={{ status or '' }}&q={{ search or '' }}">Previous</a>{% endif %}
+{% if page < pages %}<a href="?page={{ page + 1 }}&campaign_id={{ campaign_id or '' }}&status={{ status or '' }}&q={{ search or '' }}">Next</a>{% endif %}
+{% else %}
+<div class="card empty">No leads found. <a href="{{ url_for('leads.import_csv') }}">Import CSV</a></div>
+{% endif %}
+{% endblock %}

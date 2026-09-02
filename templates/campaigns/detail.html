@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ campaign.name }}{% endblock %}
+{% block content %}
+<h1>{{ campaign.name }}</h1>
+<p style="color:var(--muted)">{{ campaign.description or 'No description' }}</p>
+
+<div class="toolbar">
+  <span class="badge {{ campaign.status }}">{{ campaign.status }}</span>
+  {% if campaign.status == 'draft' or campaign.status == 'paused' %}
+  <form action="{{ url_for('campaigns.start' if campaign.status == 'draft' else 'campaigns.resume', campaign_id=campaign.id) }}" method="post" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="btn btn-primary btn-sm" type="submit">{{ 'Start' if campaign.status == 'draft' else 'Resume' }}</button>
+  </form>
+  {% endif %}
+  {% if campaign.status == 'active' %}
+  <form action="{{ url_for('campaigns.pause', campaign_id=campaign.id) }}" method="post" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="btn btn-secondary btn-sm" type="submit">Pause</button>
+  </form>
+  {% endif %}
+  <a class="btn btn-sm btn-secondary" href="{{ url_for('campaigns.edit', campaign_id=campaign.id) }}">Edit</a>
+  <a class="btn btn-sm btn-secondary" href="{{ url_for('leads.import_csv') }}?campaign_id={{ campaign.id }}">Import Leads</a>
+</div>
+
+<div class="grid grid-4">
+  <div class="stat"><b>{{ stats.get('pending', 0) + stats.get('active', 0) + stats.get('replied', 0) + stats.get('completed', 0) + stats.get('bounced', 0) + stats.get('unsubscribed', 0) }}</b><span>Total Leads</span></div>
+  <div class="stat"><b>{{ stats.emails_sent }}</b><span>Emails Sent</span></div>
+  <div class="stat"><b>{{ stats.get('replied', 0) }}</b><span>Replies</span></div>
+  <div class="stat"><b>{{ stats.reply_rate }}%</b><span>Reply Rate</span></div>
+</div>
+
+<div class="card">
+  <h3>Email Sequence</h3>
+  {% if steps %}
+  <table>
+    <tr><th>Step</th><th>Subject</th><th>Delay (days)</th><th>Enabled</th><th></th></tr>
+    {% for s in steps %}
+    <tr>
+      <td>{{ s.step_number }}</td>
+      <td>{{ s.subject[:60] }}{% if s.subject|length > 60 %}…{% endif %}</td>
+      <td>{{ s.delay_days }}</td>
+      <td>{{ 'Yes' if s.enabled else 'No' }}</td>
+      <td><a href="{{ url_for('campaigns.preview', campaign_id=campaign.id, step=s.step_number) }}">Preview</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="empty">No sequence steps configured.</p>
+  {% endif %}
+</div>
+
+<form action="{{ url_for('campaigns.delete', campaign_id=campaign.id) }}" method="post"
+      onsubmit="return confirm('Delete this campaign and all its data?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <button class="btn btn-danger btn-sm" type="submit">Delete Campaign</button>
+</form>
+{% endblock %}
