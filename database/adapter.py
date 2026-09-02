@@ -13,11 +13,15 @@ def _normalize_database_url(database_url):
     url = database_url.strip()
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://") :]
-    if "pgbouncer=true" not in url.lower():
+
+    is_pooler = "pooler.supabase.com" in url or ":6543/" in url or url.rstrip("/").endswith(":6543")
+
+    if is_pooler and "pgbouncer=true" not in url.lower():
         url += "&pgbouncer=true" if "?" in url else "?pgbouncer=true"
+
     if "sslmode=" not in url.lower():
         url += "&sslmode=require" if "?" in url else "?sslmode=require"
-    return url
+    return url, is_pooler
 
 
 def _translate_sql_postgres(sql):
@@ -90,10 +94,10 @@ class PostgresConnection:
 def connect_postgres(database_url):
     import psycopg2
 
-    url = _normalize_database_url(database_url)
+    url, is_pooler = _normalize_database_url(database_url)
     raw = psycopg2.connect(url)
-    # Required for Supabase transaction pooler (PgBouncer).
-    raw.prepare_threshold = None
+    if is_pooler:
+        raw.prepare_threshold = None
     raw.autocommit = False
     return PostgresConnection(raw)
 
