@@ -4,7 +4,7 @@ import io
 from flask import Blueprint, flash, redirect, render_template, request, send_file, url_for
 
 from routes.auth_helpers import generate_csrf_token, get_current_user_id, login_required, validate_csrf
-from services import campaign_service, lead_service
+from services import campaign_service, lead_service, signature_service
 
 leads_bp = Blueprint("leads", __name__, url_prefix="/leads")
 
@@ -108,6 +108,55 @@ def register_leads(app, con, cfg):
 
         return render_template("leads/edit.html", lead=lead, csrf_token=generate_csrf_token())
 
+    @leads_bp.route("/add", methods=["GET", "POST"])
+    @login_required
+    def add_lead():
+        user_id = get_current_user_id()
+        campaigns = campaign_service.list_campaigns(con, user_id)
+        campaign_id = request.args.get("campaign_id", type=int) or request.form.get("campaign_id", type=int)
+
+        if request.method == "POST":
+            validate_csrf()
+            campaign_id = int(request.form.get("campaign_id", 0))
+            if not campaign_service.get_campaign(con, campaign_id, user_id):
+                flash("Select a valid campaign.", "error")
+                return redirect(url_for("leads.add_lead"))
+
+            mode = request.form.get("mode", "single")
+            if mode == "bulk":
+                result = lead_service.add_leads_bulk(con, campaign_id, request.form.get("emails_text", ""))
+                flash(
+                    f"Added {result['added']} lead(s). Skipped — invalid: {result['invalid']}, "
+                    f"duplicates: {result['duplicates']}, suppressed: {result['suppressed']}.",
+                    "success" if result["added"] else "warning",
+                )
+            else:
+                result = lead_service.add_lead(con, campaign_id, {
+                    "email": request.form.get("email", ""),
+                    "first_name": request.form.get("first_name", ""),
+                    "last_name": request.form.get("last_name", ""),
+                    "full_name": request.form.get("full_name", ""),
+                    "company": request.form.get("company", ""),
+                    "website": request.form.get("website", ""),
+                    "custom_line": request.form.get("custom_line", ""),
+                })
+                if result["status"] == "added":
+                    flash("Lead added.", "success")
+                elif result["status"] == "duplicate":
+                    flash("That email is already in this campaign.", "warning")
+                elif result["status"] == "suppressed":
+                    flash("That email is on the suppression list.", "error")
+                else:
+                    flash("Invalid email address.", "error")
+            return redirect(url_for("campaigns.detail", campaign_id=campaign_id))
+
+        return render_template(
+            "leads/add.html",
+            campaigns=campaigns,
+            campaign_id=campaign_id,
+            csrf_token=generate_csrf_token(),
+        )
+
     @leads_bp.post("/suppress/<int:campaign_lead_id>")
     @login_required
     def suppress(campaign_lead_id):
@@ -121,6 +170,7 @@ def register_leads(app, con, cfg):
     def import_csv():
         user_id = get_current_user_id()
         campaigns = campaign_service.list_campaigns(con, user_id)
+        campaign_id = request.args.get("campaign_id", type=int)
         if request.method == "POST":
             validate_csrf()
             campaign_id = int(request.form.get("campaign_id", 0))
@@ -162,7 +212,17 @@ def register_leads(app, con, cfg):
             )
             return redirect(url_for("leads.index", campaign_id=campaign_id))
 
-        return render_template("leads/import.html", campaigns=campaigns, csrf_token=generate_csrf_token())
+        return render_template("leads/import.html", campaigns=campaigns, campaign_id=campaign_id, csrf_token=generate_csrf_token())
+
+    @leads_bp.get("/import/sample")
+    @login_required
+    def import_sample():
+        return send_file(
+            io.BytesIO(signature_service.SAMPLE_CSV.encode("utf-8-sig")),
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name="sample_leads.csv",
+        )
 
     @leads_bp.get("/export")
     @login_required

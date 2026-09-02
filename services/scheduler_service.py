@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from database.db import add_event, daily_sent_count, utcnow_iso
-from services import campaign_service, email_service, lead_service, template_service
+from services import campaign_service, email_service, lead_service, signature_service, template_service
 from services.user_settings_service import merge_user_config
 
 
@@ -74,7 +74,8 @@ def eligible_sends(con, campaign_id=None, user_id=None):
                    l.website, l.industry, l.location, l.custom_line, l.tags, l.notes,
                    l.unsubscribe_token, l.id AS lead_pk,
                    c.name AS campaign_name, c.daily_send_limit, c.user_id,
-                   c.delay_min_seconds, c.delay_max_seconds, c.status AS campaign_status
+                   c.delay_min_seconds, c.delay_max_seconds, c.status AS campaign_status,
+                   c.signature_id
             FROM campaign_leads cl
             JOIN leads l ON l.id=cl.lead_id
             JOIN campaigns c ON c.id=cl.campaign_id
@@ -139,10 +140,16 @@ def send_one(con, cfg, row, step):
     subject = template_service.render_template(step["subject"], lead, cfg, unsub_url)
     body = template_service.render_template(step["body"], lead, cfg, unsub_url)
 
+    signature = None
+    sig_id = row["signature_id"] if "signature_id" in row.keys() else None
+    if sig_id:
+        signature = signature_service.get_signature(con, sig_id, row["user_id"])
+    text_body, html_body = signature_service.compose_email_bodies(body, signature)
+
     add_event(con, campaign_id, lead_id, cl_id, "queued", f"step={step['step_number']}")
 
     try:
-        email_service.smtp_send(cfg, lead["email"], subject, body, unsub_url)
+        email_service.smtp_send(cfg, lead["email"], subject, text_body, unsub_url, html_body)
     except email_service.SMTPDeliveryError as exc:
         release_send_lock(con, cl_id)
         add_event(con, campaign_id, lead_id, cl_id, "send_failed", str(exc))

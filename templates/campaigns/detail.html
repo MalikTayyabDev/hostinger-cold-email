@@ -33,7 +33,8 @@
   </form>
   {% endif %}
   <a class="btn btn-secondary" href="{{ url_for('campaigns.edit', campaign_id=campaign.id) }}">Edit</a>
-  <a class="btn btn-secondary" href="{{ url_for('leads.import_csv') }}?campaign_id={{ campaign.id }}">Import leads</a>
+  <a class="btn btn-secondary" href="{{ url_for('leads.import_csv') }}?campaign_id={{ campaign.id }}">Import CSV</a>
+  <a class="btn btn-secondary" href="{{ url_for('leads.add_lead') }}?campaign_id={{ campaign.id }}">Add leads</a>
 </div>
 
 {% if dry %}
@@ -50,11 +51,33 @@
 <div class="card">
   <h3>How to launch</h3>
   <ol class="steps">
-    <li><a href="{{ url_for('settings.index') }}"><strong>Connect your email</strong></a></li>
-    <li><a href="{{ url_for('leads.import_csv') }}?campaign_id={{ campaign.id }}"><strong>Import leads</strong></a> (CSV)</li>
-    <li>Click <strong>Start campaign</strong></li>
-    <li>Click <strong>Send now</strong> to email eligible leads</li>
+    <li><a href="{{ url_for('settings.index') }}"><strong>Connect your email</strong></a> — sends via your Hostinger SMTP</li>
+    <li><a href="{{ url_for('leads.import_csv') }}?campaign_id={{ campaign.id }}"><strong>Import CSV</strong></a> or <a href="{{ url_for('leads.add_lead') }}?campaign_id={{ campaign.id }}"><strong>add leads manually</strong></a></li>
+    <li>Optional: pick an <a href="{{ url_for('signatures.index') }}"><strong>email signature</strong></a> below</li>
+    <li>Click <strong>Start campaign</strong>, then <strong>Send now</strong></li>
   </ol>
+</div>
+
+<div class="card">
+  <h3>Email signature</h3>
+  <form action="{{ url_for('campaigns.set_signature', campaign_id=campaign.id) }}" method="post" class="form-inline" style="gap:8px;flex-wrap:wrap">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <select name="signature_id" style="min-width:240px">
+      <option value="">No signature</option>
+      {% for s in signatures %}
+      <option value="{{ s.id }}" {% if campaign.signature_id == s.id %}selected{% endif %}>{{ s.name }} — {{ s.display_name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-secondary btn-sm" type="submit">Save</button>
+    <a href="{{ url_for('signatures.create') }}" class="text-sm">Create new</a>
+  </form>
+  {% if signature_preview_html %}
+  <div style="margin-top:12px;padding:12px;border:1px solid var(--border);border-radius:8px;background:#fff">
+    {{ signature_preview_html|safe }}
+  </div>
+  {% elif not signatures %}
+  <p class="text-sm muted" style="margin-top:8px;margin-bottom:0">No signatures yet — <a href="{{ url_for('signatures.create') }}">create one</a> to brand your emails.</p>
+  {% endif %}
 </div>
 
 <div class="card card-flush">

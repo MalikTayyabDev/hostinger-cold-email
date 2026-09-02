@@ -14,6 +14,7 @@ from routes.cron import register_cron
 from routes.dashboard import register_dashboard
 from routes.leads import register_leads
 from routes.settings import register_settings
+from routes.signatures import register_signatures
 from routes.unsubscribe import register_unsubscribe
 
 
@@ -61,6 +62,7 @@ def create_app():
     register_campaigns(app, db, cfg)
     register_leads(app, db, cfg)
     register_settings(app, db, cfg)
+    register_signatures(app, db)
     register_unsubscribe(app, db)
     register_cron(app, db, cfg)
 

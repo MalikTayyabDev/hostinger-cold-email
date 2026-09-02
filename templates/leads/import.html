@@ -1,7 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Import Leads{% endblock %}
 {% block content %}
-<h1>Import Leads</h1>
+<div class="page-header page-header-row">
+  <div>
+    <h1>Import leads</h1>
+    <p>Upload a CSV or add leads manually.</p>
+  </div>
+  <a class="btn btn-secondary" href="{{ url_for('leads.add_lead') }}">Add manually</a>
+</div>
+
 <div class="card">
 <form method="post" enctype="multipart/form-data">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -9,7 +16,7 @@
     <label>Campaign</label>
     <select name="campaign_id" required>
       {% for c in campaigns %}
-      <option value="{{ c.id }}">{{ c.name }}</option>
+      <option value="{{ c.id }}" {% if campaign_id == c.id %}selected{% endif %}>{{ c.name }}</option>
       {% endfor %}
     </select>
   </div>
@@ -17,10 +24,14 @@
     <label>CSV file</label>
     <input type="file" name="file" accept=".csv" required>
   </div>
-  <p style="color:var(--muted);font-size:13px">
-    Columns: name, first_name, last_name, company, email, website, industry, location, custom_line, tags
+  <p class="text-sm muted">
+    Required column: <strong>email</strong>.
+    Optional: name, first_name, last_name, company, website, industry, location, custom_line, tags
   </p>
-  <button class="btn btn-primary" type="submit">Preview Import</button>
+  <div class="toolbar" style="margin-top:16px">
+    <button class="btn btn-primary" type="submit">Preview import</button>
+    <a class="btn btn-secondary" href="{{ url_for('leads.import_sample') }}">Download sample CSV</a>
+  </div>
 </form>
 </div>
 {% endblock %}

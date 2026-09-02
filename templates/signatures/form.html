@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{% if signature %}Edit{% else %}New{% endif %} Signature{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{% if signature %}Edit signature{% else %}New signature{% endif %}</h1>
+  <p>Matches your brand — appended to every email in campaigns that use this signature.</p>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-row"><label>Signature label (internal)</label><input name="name" value="{{ form.name or '' }}" placeholder="LaunchNest Default"></div>
+      <div class="form-row"><label>Your name</label><input name="display_name" value="{{ form.display_name or '' }}" placeholder="Sarah"></div>
+      <div class="grid grid-2">
+        <div class="form-row"><label>Job title</label><input name="job_title" value="{{ form.job_title or '' }}" placeholder="Marketing Manager"></div>
+        <div class="form-row"><label>Company</label><input name="company" value="{{ form.company or '' }}" placeholder="LaunchNest"></div>
+      </div>
+      <div class="form-row"><label>Tagline</label><input name="tagline" value="{{ form.tagline or '' }}" placeholder="Engineering-First Digital Solutions"></div>
+      <div class="form-row"><label>Services (separate with •)</label><textarea name="services" rows="2">{{ form.services or '' }}</textarea></div>
+      <div class="form-row"><label>Logo URL (optional)</label><input name="logo_url" value="{{ form.logo_url or '' }}" placeholder="https://yoursite.com/logo.png"></div>
+      <div class="grid grid-2">
+        <div class="form-row"><label>Website</label><input name="website_url" value="{{ form.website_url or '' }}"></div>
+        <div class="form-row"><label>Instagram</label><input name="instagram_url" value="{{ form.instagram_url or '' }}"></div>
+      </div>
+      <div class="grid grid-2">
+        <div class="form-row"><label>Facebook</label><input name="facebook_url" value="{{ form.facebook_url or '' }}"></div>
+        <div class="form-row"><label>Google Business</label><input name="google_url" value="{{ form.google_url or '' }}"></div>
+      </div>
+      <div class="form-row"><label>Footer line</label><input name="footer_text" value="{{ form.footer_text or '' }}" placeholder="BUILD • OPTIMIZE • LAUNCH"></div>
+      <button class="btn btn-primary" type="submit">Save signature</button>
+      <a class="btn btn-secondary" href="{{ url_for('signatures.index') }}">Cancel</a>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Preview</h3>
+    <div style="border:1px solid var(--border);border-radius:8px;padding:16px;background:#fff">
+      {{ preview_html|safe }}
+    </div>
+  </div>
+</div>
+{% endblock %}

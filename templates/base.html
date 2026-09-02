@@ -20,7 +20,9 @@
       <a href="{{ url_for('leads.index') }}" class="{% if request.endpoint == 'leads.index' %}active{% endif %}">Leads</a>
       <div class="nav-label">Setup</div>
       <a href="{{ url_for('settings.index') }}" class="{% if request.blueprint == 'settings' %}active{% endif %}">Connect Email</a>
+      <a href="{{ url_for('signatures.index') }}" class="{% if request.blueprint == 'signatures' %}active{% endif %}">Signatures</a>
       <a href="{{ url_for('leads.import_csv') }}" class="nav-muted">Import CSV</a>
+      <a href="{{ url_for('leads.add_lead') }}" class="nav-muted">Add leads</a>
     </nav>
     <div class="sidebar-footer">
       <div class="user-chip">

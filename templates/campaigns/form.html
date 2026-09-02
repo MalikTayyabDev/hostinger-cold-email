@@ -10,6 +10,18 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <div class="form-row"><label>Campaign name</label><input name="name" required placeholder="Website Outreach"></div>
   <div class="form-row"><label>Description (optional)</label><textarea name="description" placeholder="Who are you reaching out to?"></textarea></div>
+  {% if signatures %}
+  <div class="form-row">
+    <label>Email signature (optional)</label>
+    <select name="signature_id">
+      <option value="">No signature</option>
+      {% for s in signatures %}
+      <option value="{{ s.id }}">{{ s.name }} — {{ s.display_name }}</option>
+      {% endfor %}
+    </select>
+    <p class="text-sm muted"><a href="{{ url_for('signatures.create') }}">Create a signature</a></p>
+  </div>
+  {% endif %}
   <button class="btn btn-primary" type="submit">{% if campaign %}Save{% else %}Create campaign{% endif %}</button>
   {% if campaign %}<a class="btn btn-secondary" href="{{ url_for('campaigns.detail', campaign_id=campaign.id) }}">Cancel</a>{% endif %}
 </form>

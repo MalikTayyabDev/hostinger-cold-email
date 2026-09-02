@@ -157,71 +157,116 @@ def preview_import(con, campaign_id, rows):
     }
 
 
+def _add_lead_row(con, campaign_id, row, now=None):
+    email = normalize_email(row.get("email"))
+    if not is_valid_email(email):
+        return None, "invalid"
+
+    dup = con.execute(
+        """SELECT cl.id FROM campaign_leads cl
+           JOIN leads l ON l.id=cl.lead_id
+           WHERE cl.campaign_id=? AND lower(l.email)=lower(?)""",
+        (campaign_id, email),
+    ).fetchone()
+    if dup:
+        return None, "duplicate"
+
+    sup = con.execute(
+        "SELECT id FROM suppressions WHERE lower(email)=lower(?)",
+        (email,),
+    ).fetchone()
+    if sup:
+        return None, "suppressed"
+
+    now = now or utcnow_iso()
+    first, last, full = parse_name_fields(row)
+    token = secrets.token_urlsafe(32)
+
+    existing = con.execute(
+        "SELECT id FROM leads WHERE lower(email)=lower(?)",
+        (email,),
+    ).fetchone()
+
+    if existing:
+        lead_id = existing["id"]
+    else:
+        lead_id = con.execute(
+            """INSERT INTO leads(
+                first_name, last_name, full_name, company, email, website,
+                industry, location, custom_line, tags, unsubscribe_token, created_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                first,
+                last,
+                full,
+                (row.get("company") or "").strip(),
+                email,
+                (row.get("website") or "").strip(),
+                (row.get("industry") or "").strip(),
+                (row.get("location") or "").strip(),
+                (row.get("custom_line") or "").strip(),
+                (row.get("tags") or "").strip(),
+                token,
+                now,
+            ),
+        ).lastrowid
+
+    cl_id = con.execute(
+        """INSERT INTO campaign_leads(campaign_id, lead_id, status, created_at)
+           VALUES(?,?,?,?)""",
+        (campaign_id, lead_id, "pending", now),
+    ).lastrowid
+    add_event(con, campaign_id, lead_id, cl_id, "imported", email)
+    return cl_id, "added"
+
+
+def add_lead(con, campaign_id, data):
+    now = utcnow_iso()
+    cl_id, status = _add_lead_row(con, campaign_id, data, now)
+    con.commit()
+    return {"status": status, "campaign_lead_id": cl_id}
+
+
+def add_leads_bulk(con, campaign_id, emails_text):
+    now = utcnow_iso()
+    added = invalid = duplicates = suppressed = 0
+    for line in (emails_text or "").splitlines():
+        email = normalize_email(line.split(",")[0].strip())
+        if not email:
+            continue
+        row = {"email": email}
+        if "," in line:
+            parts = [p.strip() for p in line.split(",", 1)]
+            row["email"] = normalize_email(parts[0])
+            if len(parts) > 1 and parts[1]:
+                row["name"] = parts[1]
+        _, status = _add_lead_row(con, campaign_id, row, now)
+        if status == "added":
+            added += 1
+        elif status == "invalid":
+            invalid += 1
+        elif status == "duplicate":
+            duplicates += 1
+        elif status == "suppressed":
+            suppressed += 1
+    con.commit()
+    return {
+        "added": added,
+        "invalid": invalid,
+        "duplicates": duplicates,
+        "suppressed": suppressed,
+    }
+
+
 def import_leads(con, campaign_id, rows):
     result = preview_import(con, campaign_id, rows)
     imported = 0
     now = utcnow_iso()
 
     for row in rows:
-        email = normalize_email(row.get("email"))
-        if not is_valid_email(email):
-            continue
-
-        dup = con.execute(
-            """SELECT cl.id FROM campaign_leads cl
-               JOIN leads l ON l.id=cl.lead_id
-               WHERE cl.campaign_id=? AND lower(l.email)=lower(?)""",
-            (campaign_id, email),
-        ).fetchone()
-        if dup:
-            continue
-
-        sup = con.execute(
-            "SELECT id FROM suppressions WHERE lower(email)=lower(?)",
-            (email,),
-        ).fetchone()
-        if sup:
-            continue
-
-        first, last, full = parse_name_fields(row)
-        token = secrets.token_urlsafe(32)
-
-        existing = con.execute(
-            "SELECT id FROM leads WHERE lower(email)=lower(?)",
-            (email,),
-        ).fetchone()
-
-        if existing:
-            lead_id = existing["id"]
-        else:
-            lead_id = con.execute(
-                """INSERT INTO leads(
-                    first_name, last_name, full_name, company, email, website,
-                    industry, location, custom_line, tags, unsubscribe_token, created_at
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (
-                    first,
-                    last,
-                    full,
-                    (row.get("company") or "").strip(),
-                    email,
-                    (row.get("website") or "").strip(),
-                    (row.get("industry") or "").strip(),
-                    (row.get("location") or "").strip(),
-                    (row.get("custom_line") or "").strip(),
-                    (row.get("tags") or "").strip(),
-                    token,
-                    now,
-                ),
-            ).lastrowid
-
-        cl_id = con.execute(
-            """INSERT INTO campaign_leads(campaign_id, lead_id, status, created_at)
-               VALUES(?,?,?,?)""",
-            (campaign_id, lead_id, "pending", now),
-        ).lastrowid
-        add_event(con, campaign_id, lead_id, cl_id, "imported", email)
-        imported += 1
+        _, status = _add_lead_row(con, campaign_id, row, now)
+        if status == "added":
+            imported += 1
 
     con.commit()
     result["imported"] = imported

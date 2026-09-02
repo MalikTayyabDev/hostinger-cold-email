@@ -7,6 +7,17 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <div class="form-row"><label>Name</label><input name="name" value="{{ campaign.name }}" required></div>
   <div class="form-row"><label>Description</label><textarea name="description">{{ campaign.description or '' }}</textarea></div>
+  {% if signatures %}
+  <div class="form-row">
+    <label>Email signature</label>
+    <select name="signature_id">
+      <option value="">No signature</option>
+      {% for s in signatures %}
+      <option value="{{ s.id }}" {% if campaign.signature_id == s.id %}selected{% endif %}>{{ s.name }} — {{ s.display_name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
   <div class="grid grid-3">
     <div class="form-row"><label>Daily send limit (blank = global)</label><input name="daily_send_limit" type="number" value="{{ campaign.daily_send_limit or '' }}"></div>
     <div class="form-row"><label>Min delay (sec)</label><input name="delay_min_seconds" type="number" value="{{ campaign.delay_min_seconds or '' }}"></div>

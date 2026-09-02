@@ -59,12 +59,12 @@ def get_steps(con, campaign_id):
     ).fetchall()
 
 
-def create_campaign(con, name, description="", user_id=None):
+def create_campaign(con, name, description="", user_id=None, signature_id=None):
     now = utcnow_iso()
     cid = con.execute(
-        """INSERT INTO campaigns(name, description, status, user_id, created_at, updated_at)
-           VALUES(?,?,?,?,?,?)""",
-        (name, description, "draft", user_id, now, now),
+        """INSERT INTO campaigns(name, description, status, user_id, signature_id, created_at, updated_at)
+           VALUES(?,?,?,?,?,?,?)""",
+        (name, description, "draft", user_id, signature_id, now, now),
     ).lastrowid
     for step_num, subject, body, delay in DEFAULT_STEPS:
         enabled = 1 if step_num <= 3 else 0
@@ -80,7 +80,7 @@ def create_campaign(con, name, description="", user_id=None):
 def update_campaign(con, campaign_id, data):
     fields = [
         "name", "description", "status", "daily_send_limit",
-        "delay_min_seconds", "delay_max_seconds",
+        "delay_min_seconds", "delay_max_seconds", "signature_id",
     ]
     sets = ["updated_at=?"]
     params = [utcnow_iso()]

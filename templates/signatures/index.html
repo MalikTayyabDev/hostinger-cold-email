@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Email Signatures{% endblock %}
+{% block content %}
+<div class="page-header page-header-row">
+  <div>
+    <h1>Email signatures</h1>
+    <p>Create branded signatures and attach them to campaigns when sending.</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('signatures.create') }}">New signature</a>
+</div>
+
+{% if signatures %}
+<div class="card card-flush">
+  <table>
+    <tr><th>Name</th><th>Display name</th><th>Company</th><th></th></tr>
+    {% for s in signatures %}
+    <tr>
+      <td>{{ s.name }}</td>
+      <td>{{ s.display_name }}</td>
+      <td>{{ s.company or '—' }}</td>
+      <td>
+        <a href="{{ url_for('signatures.edit', signature_id=s.id) }}">Edit</a>
+        <form action="{{ url_for('signatures.delete', signature_id=s.id) }}" method="post" style="display:inline"
+              onsubmit="return confirm('Delete this signature?')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn-link danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <p class="empty">No signatures yet. Create one to use on your campaigns — we include a LaunchNest-style default template.</p>
+  <a class="btn btn-primary" href="{{ url_for('signatures.create') }}">Create first signature</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,7 +1,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from routes.auth_helpers import generate_csrf_token, get_current_user_id, get_user_cfg, login_required, validate_csrf
-from services import campaign_service, email_service, scheduler_service, template_service
+from services import campaign_service, email_service, scheduler_service, signature_service, template_service
 from services.user_settings_service import smtp_configured
 
 campaigns_bp = Blueprint("campaigns", __name__, url_prefix="/campaigns")
@@ -26,12 +26,24 @@ def register_campaigns(app, con, cfg):
             if not name:
                 flash("Campaign name is required.", "error")
             else:
+                sig_raw = request.form.get("signature_id")
+                signature_id = int(sig_raw) if sig_raw else None
                 cid = campaign_service.create_campaign(
-                    con, name, request.form.get("description", ""), user_id=get_current_user_id()
+                    con,
+                    name,
+                    request.form.get("description", ""),
+                    user_id=get_current_user_id(),
+                    signature_id=signature_id,
                 )
                 flash("Campaign created.", "success")
                 return redirect(url_for("campaigns.detail", campaign_id=cid))
-        return render_template("campaigns/form.html", campaign=None, csrf_token=generate_csrf_token())
+        signatures = signature_service.list_signatures(con, get_current_user_id())
+        return render_template(
+            "campaigns/form.html",
+            campaign=None,
+            signatures=signatures,
+            csrf_token=generate_csrf_token(),
+        )
 
     @campaigns_bp.route("/<int:campaign_id>")
     @login_required
@@ -44,11 +56,21 @@ def register_campaigns(app, con, cfg):
             return redirect(url_for("campaigns.index"))
         steps = campaign_service.get_steps(con, campaign_id)
         stats = campaign_service.campaign_stats(con, campaign_id)
+        signatures = signature_service.list_signatures(con, user_id)
+        selected_sig = None
+        signature_preview_html = ""
+        if campaign["signature_id"]:
+            selected_sig = signature_service.get_signature(con, campaign["signature_id"], user_id)
+            if selected_sig:
+                signature_preview_html = signature_service.render_html(selected_sig)
         return render_template(
             "campaigns/detail.html",
             campaign=campaign,
             steps=steps,
             stats=stats,
+            signatures=signatures,
+            selected_sig=selected_sig,
+            signature_preview_html=signature_preview_html,
             smtp_ready=smtp_configured(user_cfg),
             dry=user_cfg["DRY_RUN"],
             csrf_token=generate_csrf_token(),
@@ -64,12 +86,14 @@ def register_campaigns(app, con, cfg):
 
         if request.method == "POST":
             validate_csrf()
+            sig_raw = request.form.get("signature_id")
             campaign_service.update_campaign(con, campaign_id, {
                 "name": request.form.get("name", "").strip(),
                 "description": request.form.get("description", ""),
                 "daily_send_limit": request.form.get("daily_send_limit") or None,
                 "delay_min_seconds": request.form.get("delay_min_seconds") or None,
                 "delay_max_seconds": request.form.get("delay_max_seconds") or None,
+                "signature_id": int(sig_raw) if sig_raw else None,
             })
             steps = []
             step_nums = request.form.getlist("step_number")
@@ -90,12 +114,31 @@ def register_campaigns(app, con, cfg):
             return redirect(url_for("campaigns.detail", campaign_id=campaign_id))
 
         steps = campaign_service.get_steps(con, campaign_id)
+        signatures = signature_service.list_signatures(con, get_current_user_id())
         return render_template(
             "campaigns/edit.html",
             campaign=campaign,
             steps=steps,
+            signatures=signatures,
             csrf_token=generate_csrf_token(),
         )
+
+    @campaigns_bp.post("/<int:campaign_id>/signature")
+    @login_required
+    def set_signature(campaign_id):
+        validate_csrf()
+        campaign = _campaign(campaign_id)
+        if not campaign:
+            flash("Campaign not found.", "error")
+            return redirect(url_for("campaigns.index"))
+        sig_raw = request.form.get("signature_id")
+        signature_id = int(sig_raw) if sig_raw else None
+        if signature_id and not signature_service.get_signature(con, signature_id, get_current_user_id()):
+            flash("Invalid signature.", "error")
+            return redirect(url_for("campaigns.detail", campaign_id=campaign_id))
+        campaign_service.update_campaign(con, campaign_id, {"signature_id": signature_id})
+        flash("Email signature updated.", "success")
+        return redirect(url_for("campaigns.detail", campaign_id=campaign_id))
 
     @campaigns_bp.post("/<int:campaign_id>/start")
     @login_required
@@ -198,13 +241,18 @@ def register_campaigns(app, con, cfg):
         unsub = template_service.unsubscribe_url(user_cfg, lead)
         subject = template_service.render_template(step["subject"], lead, user_cfg, unsub)
         body = template_service.render_template(step["body"], lead, user_cfg, unsub)
+        campaign = _campaign(campaign_id)
+        signature = signature_service.get_campaign_signature(con, campaign) if campaign else None
+        text_body, html_body = signature_service.compose_email_bodies(body, signature)
         return render_template(
             "campaigns/preview.html",
             campaign_id=campaign_id,
             step=step,
             lead=lead,
             subject=subject,
-            body=body,
+            body=text_body,
+            html_body=html_body,
+            signature=signature,
             from_email=user_cfg["FROM_EMAIL"],
             from_name=user_cfg["FROM_NAME"],
             csrf_token=generate_csrf_token(),
@@ -245,9 +293,12 @@ def register_campaigns(app, con, cfg):
         unsub = template_service.unsubscribe_url(user_cfg, lead)
         subject = "[TEST] " + template_service.render_template(step["subject"], lead, user_cfg, unsub)
         body = template_service.render_template(step["body"], lead, user_cfg, unsub)
+        campaign = _campaign(campaign_id)
+        signature = signature_service.get_campaign_signature(con, campaign) if campaign else None
+        text_body, html_body = signature_service.compose_email_bodies(body, signature)
 
         try:
-            email_service.smtp_send(user_cfg, test_email, subject, body, unsub)
+            email_service.smtp_send(user_cfg, test_email, subject, text_body, unsub, html_body)
             flash(f"Test email sent to {test_email}.", "success")
         except email_service.SMTPDeliveryError as exc:
             flash(str(exc), "error")

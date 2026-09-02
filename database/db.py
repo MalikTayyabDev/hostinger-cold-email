@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
     daily_send_limit INTEGER,
     delay_min_seconds INTEGER,
     delay_max_seconds INTEGER,
+    signature_id INTEGER,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -148,6 +149,26 @@ CREATE TABLE IF NOT EXISTS user_settings (
 CREATE TABLE IF NOT EXISTS scheduler_state (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS email_signatures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    display_name TEXT NOT NULL DEFAULT '',
+    job_title TEXT NOT NULL DEFAULT '',
+    company TEXT NOT NULL DEFAULT '',
+    tagline TEXT NOT NULL DEFAULT '',
+    services TEXT NOT NULL DEFAULT '',
+    website_url TEXT NOT NULL DEFAULT '',
+    instagram_url TEXT NOT NULL DEFAULT '',
+    facebook_url TEXT NOT NULL DEFAULT '',
+    google_url TEXT NOT NULL DEFAULT '',
+    logo_url TEXT NOT NULL DEFAULT '',
+    footer_text TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 """
 
@@ -405,6 +426,63 @@ def _migrate_multi_user(con):
         con.commit()
 
 
+def _migrate_signatures(con):
+    backend = getattr(con, "backend", "sqlite")
+    if not _table_exists(con, "email_signatures"):
+        if backend == "postgres":
+            con.execute(
+                """CREATE TABLE email_signatures (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    name TEXT NOT NULL,
+                    display_name TEXT NOT NULL DEFAULT '',
+                    job_title TEXT NOT NULL DEFAULT '',
+                    company TEXT NOT NULL DEFAULT '',
+                    tagline TEXT NOT NULL DEFAULT '',
+                    services TEXT NOT NULL DEFAULT '',
+                    website_url TEXT NOT NULL DEFAULT '',
+                    instagram_url TEXT NOT NULL DEFAULT '',
+                    facebook_url TEXT NOT NULL DEFAULT '',
+                    google_url TEXT NOT NULL DEFAULT '',
+                    logo_url TEXT NOT NULL DEFAULT '',
+                    footer_text TEXT NOT NULL DEFAULT '',
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )"""
+            )
+        else:
+            con.execute(
+                """CREATE TABLE email_signatures (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    display_name TEXT NOT NULL DEFAULT '',
+                    job_title TEXT NOT NULL DEFAULT '',
+                    company TEXT NOT NULL DEFAULT '',
+                    tagline TEXT NOT NULL DEFAULT '',
+                    services TEXT NOT NULL DEFAULT '',
+                    website_url TEXT NOT NULL DEFAULT '',
+                    instagram_url TEXT NOT NULL DEFAULT '',
+                    facebook_url TEXT NOT NULL DEFAULT '',
+                    google_url TEXT NOT NULL DEFAULT '',
+                    logo_url TEXT NOT NULL DEFAULT '',
+                    footer_text TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )"""
+            )
+        con.commit()
+
+    if _table_exists(con, "campaigns") and not _column_exists(con, "campaigns", "signature_id"):
+        con.execute("ALTER TABLE campaigns ADD COLUMN signature_id INTEGER")
+        con.commit()
+
+    if backend == "sqlite" and _table_exists(con, "email_signatures"):
+        con.execute("CREATE INDEX IF NOT EXISTS idx_email_signatures_user ON email_signatures(user_id)")
+        con.commit()
+
+
 def connect(path="campaign.db"):
     # Explicit sqlite path (e.g. tests) must not be overridden by DATABASE_URL.
     if os.getenv("DATABASE_URL") and path == "campaign.db":
@@ -413,6 +491,7 @@ def connect(path="campaign.db"):
         # Migrations are slow on Supabase pooler — run migration_multi_user.sql manually.
         if not os.getenv("VERCEL"):
             _migrate_multi_user(con)
+            _migrate_signatures(con)
             _ensure_default_campaign(con)
         return con
 
@@ -423,6 +502,7 @@ def connect(path="campaign.db"):
     con.commit()
     _migrate_legacy(con)
     _migrate_multi_user(con)
+    _migrate_signatures(con)
     _ensure_default_campaign(con)
     _create_indexes(con)
     con.commit()

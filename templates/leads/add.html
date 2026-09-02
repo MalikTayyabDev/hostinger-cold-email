@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Add Leads{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Add leads</h1>
+  <p>Add contacts manually or paste multiple emails — or <a href="{{ url_for('leads.import_csv') }}">import a CSV</a>.</p>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h3>Add one lead</h3>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="mode" value="single">
+      <div class="form-row">
+        <label>Campaign</label>
+        <select name="campaign_id" required>
+          {% for c in campaigns %}
+          <option value="{{ c.id }}" {% if campaign_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row"><label>Email *</label><input name="email" type="email" required placeholder="john@company.com"></div>
+      <div class="grid grid-2">
+        <div class="form-row"><label>First name</label><input name="first_name" placeholder="John"></div>
+        <div class="form-row"><label>Last name</label><input name="last_name" placeholder="Smith"></div>
+      </div>
+      <div class="form-row"><label>Company</label><input name="company" placeholder="Example Co"></div>
+      <div class="form-row"><label>Website</label><input name="website" placeholder="https://example.com"></div>
+      <div class="form-row"><label>Custom line (personalized opener)</label><textarea name="custom_line" rows="3" placeholder="I noticed your website could use a clearer call-to-action on mobile."></textarea></div>
+      <button class="btn btn-primary" type="submit">Add lead</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Paste multiple emails</h3>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="mode" value="bulk">
+      <div class="form-row">
+        <label>Campaign</label>
+        <select name="campaign_id" required>
+          {% for c in campaigns %}
+          <option value="{{ c.id }}" {% if campaign_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Emails (one per line)</label>
+        <textarea name="emails_text" rows="10" placeholder="john@company.com, John&#10;sarah@another.com&#10;mike@sample.com"></textarea>
+      </div>
+      <p class="text-sm muted">Format: <code>email@domain.com</code> or <code>email@domain.com, Name</code></p>
+      <button class="btn btn-primary" type="submit">Add all</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

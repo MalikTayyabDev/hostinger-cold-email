@@ -72,7 +72,7 @@ def _safe_int(val, default):
         return int(default)
 
 
-def smtp_send(cfg, to_email, subject, text_body, unsubscribe_url=None):
+def smtp_send(cfg, to_email, subject, text_body, unsubscribe_url=None, html_body=None):
     msg = EmailMessage()
     msg["From"] = formataddr((cfg["FROM_NAME"], cfg["FROM_EMAIL"]))
     msg["To"] = to_email
@@ -85,6 +85,8 @@ def smtp_send(cfg, to_email, subject, text_body, unsubscribe_url=None):
             msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
 
     msg.set_content(text_body)
+    if html_body:
+        msg.add_alternative(html_body, subtype="html")
 
     if cfg["DRY_RUN"]:
         log.info("DRY RUN email to %s — subject: %s", to_email, subject)

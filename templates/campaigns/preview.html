@@ -9,6 +9,10 @@
   <p><strong>Subject:</strong> {{ subject }}</p>
   <hr>
   <pre style="white-space:pre-wrap;font-family:inherit">{{ body }}</pre>
+  {% if html_body %}
+  <h4 style="margin-top:20px">HTML preview (with signature)</h4>
+  <div style="border:1px solid var(--border);padding:12px;border-radius:8px;background:#fff">{{ html_body|safe }}</div>
+  {% endif %}
 </div>
 
 <form action="{{ url_for('campaigns.test_send', campaign_id=campaign_id) }}" method="post"
