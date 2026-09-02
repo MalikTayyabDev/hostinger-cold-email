@@ -77,7 +77,7 @@ def list_leads(con, campaign_id=None, status=None, search=None, page=1, per_page
 
     rows = con.execute(
         f"""SELECT l.id, l.first_name, l.last_name, l.full_name, l.company, l.email,
-                   l.website, l.industry, l.location, l.custom_line, l.tags, l.notes,
+                   l.website, l.industry, l.location, l.custom_line, l.opener_angle, l.tags, l.notes,
                    l.unsubscribe_token, l.created_at,
                    cl.id AS campaign_lead_id, cl.campaign_id, cl.status,
                    cl.sequence_step, cl.emails_sent, cl.last_contacted_at,
@@ -193,8 +193,8 @@ def _add_lead_row(con, campaign_id, row, now=None):
         lead_id = con.execute(
             """INSERT INTO leads(
                 first_name, last_name, full_name, company, email, website,
-                industry, location, custom_line, tags, unsubscribe_token, created_at
-            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+                industry, location, custom_line, opener_angle, tags, unsubscribe_token, created_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 first,
                 last,
@@ -205,6 +205,7 @@ def _add_lead_row(con, campaign_id, row, now=None):
                 (row.get("industry") or "").strip(),
                 (row.get("location") or "").strip(),
                 (row.get("custom_line") or "").strip(),
+                (row.get("opener_angle") or "auto").strip().lower() or "auto",
                 (row.get("tags") or "").strip(),
                 token,
                 now,
@@ -299,7 +300,7 @@ def suppress_lead(con, campaign_lead_id, source="manual"):
 def update_lead(con, lead_id, data):
     fields = [
         "first_name", "last_name", "full_name", "company", "email",
-        "website", "industry", "location", "custom_line", "tags", "notes",
+        "website", "industry", "location", "custom_line", "opener_angle", "tags", "notes",
     ]
     sets = []
     params = []
@@ -333,7 +334,7 @@ def export_leads(con, campaign_id=None, status=None, suppressed_only=False):
     where = " AND ".join(clauses)
     return con.execute(
         f"""SELECT l.first_name, l.last_name, l.full_name, l.company, l.email,
-                   l.website, l.industry, l.location, l.custom_line, l.tags,
+                   l.website, l.industry, l.location, l.custom_line, l.opener_angle, l.tags,
                    cl.status, c.name AS campaign_name, cl.last_contacted_at,
                    cl.next_action_at, cl.emails_sent, cl.replies_count
             FROM campaign_leads cl

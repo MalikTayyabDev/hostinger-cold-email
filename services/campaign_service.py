@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from database.db import DEFAULT_STEPS, add_event, utcnow_iso
+from services.campaign_templates import get_steps as get_template_steps
 
 
 def get_campaign(con, campaign_id, user_id=None):
@@ -59,14 +60,15 @@ def get_steps(con, campaign_id):
     ).fetchall()
 
 
-def create_campaign(con, name, description="", user_id=None, signature_id=None):
+def create_campaign(con, name, description="", user_id=None, signature_id=None, template_key="launchnest_budget"):
     now = utcnow_iso()
     cid = con.execute(
         """INSERT INTO campaigns(name, description, status, user_id, signature_id, created_at, updated_at)
            VALUES(?,?,?,?,?,?,?)""",
         (name, description, "draft", user_id, signature_id, now, now),
     ).lastrowid
-    for step_num, subject, body, delay in DEFAULT_STEPS:
+    steps = get_template_steps(template_key) or DEFAULT_STEPS
+    for step_num, subject, body, delay in steps:
         enabled = 1 if step_num <= 3 else 0
         con.execute(
             """INSERT INTO campaign_steps(campaign_id, step_number, subject, body, delay_days, enabled)
@@ -75,6 +77,24 @@ def create_campaign(con, name, description="", user_id=None, signature_id=None):
         )
     con.commit()
     return cid
+
+
+def apply_template(con, campaign_id, template_key):
+    steps = get_template_steps(template_key)
+    if not steps:
+        return False
+    formatted = [
+        {
+            "step_number": num,
+            "subject": subject,
+            "body": body,
+            "delay_days": delay,
+            "enabled": num <= 3,
+        }
+        for num, subject, body, delay in steps
+    ]
+    save_steps(con, campaign_id, formatted)
+    return True
 
 
 def update_campaign(con, campaign_id, data):

@@ -1,7 +1,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from routes.auth_helpers import generate_csrf_token, get_current_user_id, get_user_cfg, login_required, validate_csrf
-from services import campaign_service, email_service, scheduler_service, signature_service, template_service
+from services import campaign_service, campaign_templates, email_service, scheduler_service, signature_service, template_service
 from services.user_settings_service import smtp_configured
 
 campaigns_bp = Blueprint("campaigns", __name__, url_prefix="/campaigns")
@@ -28,20 +28,24 @@ def register_campaigns(app, con, cfg):
             else:
                 sig_raw = request.form.get("signature_id")
                 signature_id = int(sig_raw) if sig_raw else None
+                template_key = request.form.get("template_key") or "launchnest_budget"
                 cid = campaign_service.create_campaign(
                     con,
                     name,
                     request.form.get("description", ""),
                     user_id=get_current_user_id(),
                     signature_id=signature_id,
+                    template_key=template_key,
                 )
                 flash("Campaign created.", "success")
                 return redirect(url_for("campaigns.detail", campaign_id=cid))
         signatures = signature_service.list_signatures(con, get_current_user_id())
+        templates = campaign_templates.list_templates()
         return render_template(
             "campaigns/form.html",
             campaign=None,
             signatures=signatures,
+            templates=templates,
             csrf_token=generate_csrf_token(),
         )
 
@@ -115,13 +119,30 @@ def register_campaigns(app, con, cfg):
 
         steps = campaign_service.get_steps(con, campaign_id)
         signatures = signature_service.list_signatures(con, get_current_user_id())
+        templates = campaign_templates.list_templates()
         return render_template(
             "campaigns/edit.html",
             campaign=campaign,
             steps=steps,
             signatures=signatures,
+            templates=templates,
             csrf_token=generate_csrf_token(),
         )
+
+    @campaigns_bp.post("/<int:campaign_id>/apply-template")
+    @login_required
+    def apply_template(campaign_id):
+        validate_csrf()
+        campaign = _campaign(campaign_id)
+        if not campaign:
+            flash("Campaign not found.", "error")
+            return redirect(url_for("campaigns.index"))
+        template_key = request.form.get("template_key")
+        if not template_key or not campaign_service.apply_template(con, campaign_id, template_key):
+            flash("Could not apply template.", "error")
+        else:
+            flash("Email template applied — review the sequence below.", "success")
+        return redirect(url_for("campaigns.edit", campaign_id=campaign_id))
 
     @campaigns_bp.post("/<int:campaign_id>/signature")
     @login_required

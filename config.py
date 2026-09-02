@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BUILD_ID = "2026-09-02r"
+BUILD_ID = "2026-09-02s"
 
 
 def _env(name, default=""):

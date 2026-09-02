@@ -1,6 +1,8 @@
 import re
 import secrets
 
+from services import opener_service
+
 
 VAR_PATTERN = re.compile(r"\{\{(\w+)\}\}")
 
@@ -10,9 +12,12 @@ FALLBACKS = {
     "full_name": "there",
     "company": "your company",
     "website": "your website",
+    "website_domain": "your site",
     "industry": "your industry",
     "location": "your area",
-    "custom_line": "I came across your website and had a quick idea that may be useful.",
+    "custom_line": "",
+    "smart_opener": "",
+    "launchnest_url": opener_service.LAUNCHNEST_URL,
     "sender_name": "",
     "unsubscribe_url": "",
     "unsubscribe_footer": "",
@@ -32,6 +37,9 @@ def _lead_values(lead, cfg, unsubscribe_url=""):
     sender = cfg.get("FROM_NAME") or "Team"
     footer = cfg.get("EMAIL_FOOTER") or ""
     unsub_footer = f"Unsubscribe: {unsubscribe_url}" if unsubscribe_url else ""
+    smart = opener_service.generate_smart_opener(lead)
+    custom = opener_service.resolve_custom_line(lead)
+    domain = opener_service._website_domain(lead) or "your site"
 
     raw = {
         "first_name": first,
@@ -39,9 +47,12 @@ def _lead_values(lead, cfg, unsubscribe_url=""):
         "full_name": full,
         "company": (lead.get("company") or "").strip(),
         "website": (lead.get("website") or "").strip(),
+        "website_domain": domain,
         "industry": (lead.get("industry") or "").strip(),
         "location": (lead.get("location") or "").strip(),
-        "custom_line": (lead.get("custom_line") or "").strip(),
+        "custom_line": custom,
+        "smart_opener": smart,
+        "launchnest_url": opener_service.LAUNCHNEST_URL,
         "sender_name": sender,
         "unsubscribe_url": unsubscribe_url,
         "unsubscribe_footer": unsub_footer,

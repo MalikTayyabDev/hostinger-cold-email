@@ -4,7 +4,7 @@ import io
 from flask import Blueprint, flash, redirect, render_template, request, send_file, url_for
 
 from routes.auth_helpers import generate_csrf_token, get_current_user_id, login_required, validate_csrf
-from services import campaign_service, lead_service, signature_service
+from services import campaign_service, lead_service, opener_service, signature_service
 
 leads_bp = Blueprint("leads", __name__, url_prefix="/leads")
 
@@ -99,6 +99,7 @@ def register_leads(app, con, cfg):
                 "website": request.form.get("website", ""),
                 "industry": request.form.get("industry", ""),
                 "location": request.form.get("location", ""),
+                "opener_angle": request.form.get("opener_angle", "auto"),
                 "custom_line": request.form.get("custom_line", ""),
                 "tags": request.form.get("tags", ""),
                 "notes": request.form.get("notes", ""),
@@ -106,7 +107,12 @@ def register_leads(app, con, cfg):
             flash("Lead updated.", "success")
             return redirect(url_for("leads.detail", lead_id=lead_id))
 
-        return render_template("leads/edit.html", lead=lead, csrf_token=generate_csrf_token())
+        return render_template(
+            "leads/edit.html",
+            lead=lead,
+            opener_angles=opener_service.list_angles_for_ui(),
+            csrf_token=generate_csrf_token(),
+        )
 
     @leads_bp.route("/add", methods=["GET", "POST"])
     @login_required
@@ -138,6 +144,9 @@ def register_leads(app, con, cfg):
                     "full_name": request.form.get("full_name", ""),
                     "company": request.form.get("company", ""),
                     "website": request.form.get("website", ""),
+                    "industry": request.form.get("industry", ""),
+                    "location": request.form.get("location", ""),
+                    "opener_angle": request.form.get("opener_angle", "auto"),
                     "custom_line": request.form.get("custom_line", ""),
                 })
                 if result["status"] == "added":
@@ -154,6 +163,7 @@ def register_leads(app, con, cfg):
             "leads/add.html",
             campaigns=campaigns,
             campaign_id=campaign_id,
+            opener_angles=opener_service.list_angles_for_ui(),
             csrf_token=generate_csrf_token(),
         )
 

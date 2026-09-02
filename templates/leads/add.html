@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
   <h1>Add leads</h1>
-  <p>Add contacts manually or paste multiple emails — or <a href="{{ url_for('leads.import_csv') }}">import a CSV</a>.</p>
+  <p>Add contacts manually or paste emails — smart openers personalize automatically (no site audit needed).</p>
 </div>
 
 <div class="grid grid-2">
@@ -26,8 +26,29 @@
         <div class="form-row"><label>Last name</label><input name="last_name" placeholder="Smith"></div>
       </div>
       <div class="form-row"><label>Company</label><input name="company" placeholder="Example Co"></div>
-      <div class="form-row"><label>Website</label><input name="website" placeholder="https://example.com"></div>
-      <div class="form-row"><label>Custom line (personalized opener)</label><textarea name="custom_line" rows="3" placeholder="I noticed your website could use a clearer call-to-action on mobile."></textarea></div>
+      <div class="grid grid-2">
+        <div class="form-row"><label>Website</label><input name="website" placeholder="https://example.com"></div>
+        <div class="form-row"><label>Industry</label><input name="industry" placeholder="Healthcare, E-commerce, SaaS…"></div>
+      </div>
+      <div class="form-row"><label>Location</label><input name="location" placeholder="Austin TX"></div>
+
+      <div class="form-row">
+        <label>Smart opener angle</label>
+        <select name="opener_angle">
+          {% for a in opener_angles %}
+          <option value="{{ a.id }}">{{ a.label }}</option>
+          {% endfor %}
+        </select>
+        <p class="text-sm muted" style="margin-top:6px;margin-bottom:0">
+          <strong>Auto</strong> picks budget, e-commerce, local, etc. from industry &amp; website.
+          Used when custom line is blank — fills {% raw %}{{smart_opener}}{% endraw %} in emails.
+        </p>
+      </div>
+
+      <div class="form-row">
+        <label>Custom line (optional override)</label>
+        <textarea name="custom_line" rows="3" placeholder="Leave blank to use smart opener — or write your own opening sentence here."></textarea>
+      </div>
       <button class="btn btn-primary" type="submit">Add lead</button>
     </form>
   </div>
@@ -47,11 +68,16 @@
       </div>
       <div class="form-row">
         <label>Emails (one per line)</label>
-        <textarea name="emails_text" rows="10" placeholder="john@company.com, John&#10;sarah@another.com&#10;mike@sample.com"></textarea>
+        <textarea name="emails_text" rows="10" placeholder="john@company.com, John&#10;sarah@shop.com&#10;mike@local.com"></textarea>
       </div>
-      <p class="text-sm muted">Format: <code>email@domain.com</code> or <code>email@domain.com, Name</code></p>
+      <p class="text-sm muted">Bulk adds use <strong>Auto</strong> smart openers. For angles &amp; industry, use CSV import or add one-by-one.</p>
       <button class="btn btn-primary" type="submit">Add all</button>
     </form>
+
+    <hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">
+    <p class="text-sm muted" style="margin:0">
+      <strong>Tip:</strong> Download the <a href="{{ url_for('leads.import_sample') }}">sample CSV</a> — includes <code>opener_angle</code>, <code>industry</code>, and <code>location</code> columns for better auto openers.
+    </p>
   </div>
 </div>
 {% endblock %}

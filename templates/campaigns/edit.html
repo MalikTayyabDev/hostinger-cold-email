@@ -2,6 +2,24 @@
 {% block title %}Edit {{ campaign.name }}{% endblock %}
 {% block content %}
 <h1>Edit Campaign</h1>
+
+{% if templates %}
+<div class="card" style="background:#f8fafc;margin-bottom:16px">
+  <h3 style="margin-top:0">Load email template</h3>
+  <p class="text-sm muted">Replace all sequence steps with a LaunchNest template (launch-nest.com, budget value, smart openers).</p>
+  <form action="{{ url_for('campaigns.apply_template', campaign_id=campaign.id) }}" method="post" class="form-inline" style="gap:8px;flex-wrap:wrap"
+        onsubmit="return confirm('Replace current email sequence with this template?')">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <select name="template_key" required style="min-width:280px">
+      {% for t in templates %}
+      <option value="{{ t.id }}">{{ t.name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-secondary btn-sm" type="submit">Apply template</button>
+  </form>
+</div>
+{% endif %}
+
 <div class="card">
 <form method="post">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -23,6 +41,10 @@
     <div class="form-row"><label>Min delay (sec)</label><input name="delay_min_seconds" type="number" value="{{ campaign.delay_min_seconds or '' }}"></div>
     <div class="form-row"><label>Max delay (sec)</label><input name="delay_max_seconds" type="number" value="{{ campaign.delay_max_seconds or '' }}"></div>
   </div>
+
+  <p class="text-sm muted" style="margin-top:16px">
+    Variables: {% raw %}{{first_name}}, {{company}}, {{smart_opener}}, {{custom_line}}, {{launchnest_url}}{% endraw %}
+  </p>
 
   <h3 style="margin-top:24px">Sequence Steps</h3>
   {% for s in steps %}

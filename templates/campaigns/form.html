@@ -3,13 +3,27 @@
 {% block content %}
 <div class="page-header">
   <h1>{% if campaign %}Edit campaign{% else %}New campaign{% endif %}</h1>
-  <p>{% if campaign %}Update name and description{% else %}Start with a name — sequence steps are added automatically{% endif %}</p>
+  <p>{% if campaign %}Update name and description{% else %}Pick a LaunchNest email template — no site audits needed{% endif %}</p>
 </div>
-<div class="card" style="max-width:560px">
+<div class="card" style="max-width:640px">
 <form method="post">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <div class="form-row"><label>Campaign name</label><input name="name" required placeholder="Website Outreach"></div>
+  <div class="form-row"><label>Campaign name</label><input name="name" required placeholder="Q3 Outreach"></div>
   <div class="form-row"><label>Description (optional)</label><textarea name="description" placeholder="Who are you reaching out to?"></textarea></div>
+
+  {% if templates %}
+  <div class="form-row">
+    <label>Email template</label>
+    {% for t in templates %}
+    <label class="template-option" style="display:block;padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer">
+      <input type="radio" name="template_key" value="{{ t.id }}" {% if loop.first %}checked{% endif %}>
+      <strong>{{ t.name }}</strong>
+      <span class="text-sm muted" style="display:block;margin-top:4px">{{ t.description }} ({{ t.step_count }} steps)</span>
+    </label>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% if signatures %}
   <div class="form-row">
     <label>Email signature (optional)</label>
@@ -19,9 +33,9 @@
       <option value="{{ s.id }}">{{ s.name }} — {{ s.display_name }}</option>
       {% endfor %}
     </select>
-    <p class="text-sm muted"><a href="{{ url_for('signatures.create') }}">Create a signature</a></p>
   </div>
   {% endif %}
+
   <button class="btn btn-primary" type="submit">{% if campaign %}Save{% else %}Create campaign{% endif %}</button>
   {% if campaign %}<a class="btn btn-secondary" href="{{ url_for('campaigns.detail', campaign_id=campaign.id) }}">Cancel</a>{% endif %}
 </form>

@@ -20,7 +20,15 @@
     <div class="form-row"><label>Location</label><input name="location" value="{{ lead.location or '' }}"></div>
     <div class="form-row"><label>Tags</label><input name="tags" value="{{ lead.tags or '' }}"></div>
   </div>
-  <div class="form-row"><label>Custom line</label><textarea name="custom_line">{{ lead.custom_line or '' }}</textarea></div>
+  <div class="form-row">
+    <label>Smart opener angle</label>
+    <select name="opener_angle">
+      {% for a in opener_angles %}
+      <option value="{{ a.id }}" {% if (lead.opener_angle or 'auto') == a.id %}selected{% endif %}>{{ a.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="form-row"><label>Custom line (optional — overrides smart opener)</label><textarea name="custom_line" rows="3">{{ lead.custom_line or '' }}</textarea></div>
   <div class="form-row"><label>Notes</label><textarea name="notes">{{ lead.notes or '' }}</textarea></div>
   <button class="btn btn-primary" type="submit">Save</button>
 </form>

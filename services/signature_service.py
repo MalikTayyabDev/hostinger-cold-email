@@ -23,10 +23,11 @@ SIGNATURE_FIELDS = [
     "website_url", "instagram_url", "facebook_url", "google_url", "logo_url", "footer_text",
 ]
 
-SAMPLE_CSV = """name,company,email,website,custom_line
-John,Example Company,john@example.com,https://example.com,"I noticed your website could make the main service CTA easier to find on mobile."
-Sarah,Another Company,sarah@example.com,https://another.example.com,"I had a quick idea for improving the homepage conversion flow."
-Mike,Sample Corp,mike@samplecorp.com,https://samplecorp.com,"Your site loads well on desktop but the contact form could be simplified."
+SAMPLE_CSV = """name,company,email,website,industry,location,opener_angle,custom_line
+John,Example Company,john@example.com,https://example.com,SaaS,,budget,
+Sarah,Local Dental,sarah@dental.com,https://dental.com,Healthcare,Austin TX,local,
+Mike,Shop Brand,mike@shop.com,https://shop.com,E-commerce,,ecommerce,
+Ann,Generic Co,ann@generic.com,,,,auto,
 """
 
 

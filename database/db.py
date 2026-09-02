@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS leads (
     industry TEXT DEFAULT '',
     location TEXT DEFAULT '',
     custom_line TEXT DEFAULT '',
+    opener_angle TEXT DEFAULT 'auto',
     tags TEXT DEFAULT '',
     notes TEXT DEFAULT '',
     unsubscribe_token TEXT,
@@ -174,44 +175,31 @@ CREATE TABLE IF NOT EXISTS email_signatures (
 
 
 DEFAULT_STEPS = [
-    (1, "Quick idea for {{company}}", """Hi {{first_name}},
+    (1, "Better web work for {{company}} — without the agency price tag", """Hi {{first_name}},
 
-{{custom_line}}
+{{smart_opener}}
 
-I work with businesses on website improvements, performance and conversion-focused fixes. I had a couple of specific ideas for {{company}}.
+At LaunchNest (https://launch-nest.com) we help with full-stack development, Shopify, WordPress, UI/UX, SEO, and QA — at lean budgets vs typical agencies.
 
-Would you be open to me sending them over?
+Would a quick 15-minute call make sense for {{company}}?
 
-Best,
-{{sender_name}}
-
-{{email_footer}}
 {{unsubscribe_footer}}""", 0),
-    (2, "Re: Quick idea for {{company}}", """Hi {{first_name}},
+    (2, "Re: web project for {{company}}", """Hi {{first_name}},
 
-Just following up on my note below.
+Following up — happy to send relevant LaunchNest examples and a rough budget range for {{company}}.
 
-If improving the website isn't a priority right now, no worries — just let me know and I won't follow up again.
-
-Best,
-{{sender_name}}
+Worth a reply?
 
 {{unsubscribe_footer}}""", 3),
-    (3, "Last follow-up — {{company}}", """Hi {{first_name}},
+    (3, "Last note — {{company}}", """Hi {{first_name}},
 
-I'll make this my last follow-up.
-
-If you'd like the website ideas I mentioned, I'm happy to send them over. Otherwise, no problem.
-
-Best,
-{{sender_name}}
+Last follow-up from me. If website work is not a priority, just say so and I will close the loop.
 
 {{unsubscribe_footer}}""", 7),
-    (4, "Checking in — {{company}}", """Hi {{first_name}},
+    (4, "Closing the loop", """Hi {{first_name}},
 
-Wanted to check in one last time in case timing is better now.
+All the best — reach us at launch-nest.com if {{company}} needs help later.
 
-Best,
 {{sender_name}}
 
 {{unsubscribe_footer}}""", 14),
@@ -483,6 +471,12 @@ def _migrate_signatures(con):
         con.commit()
 
 
+def _migrate_opener_angle(con):
+    if _table_exists(con, "leads") and not _column_exists(con, "leads", "opener_angle"):
+        con.execute("ALTER TABLE leads ADD COLUMN opener_angle TEXT DEFAULT 'auto'")
+        con.commit()
+
+
 def connect(path="campaign.db"):
     # Explicit sqlite path (e.g. tests) must not be overridden by DATABASE_URL.
     if os.getenv("DATABASE_URL") and path == "campaign.db":
@@ -492,6 +486,7 @@ def connect(path="campaign.db"):
         if not os.getenv("VERCEL"):
             _migrate_multi_user(con)
             _migrate_signatures(con)
+            _migrate_opener_angle(con)
             _ensure_default_campaign(con)
         return con
 
@@ -503,6 +498,7 @@ def connect(path="campaign.db"):
     _migrate_legacy(con)
     _migrate_multi_user(con)
     _migrate_signatures(con)
+    _migrate_opener_angle(con)
     _ensure_default_campaign(con)
     _create_indexes(con)
     con.commit()
