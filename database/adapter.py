@@ -84,7 +84,8 @@ class PostgresConnection:
 
         cur = self._raw.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(run_sql, params)
-        return _Result(cur, is_select=is_select, is_insert=is_insert)
+        fetch_insert_id = "RETURNING" in run_sql.upper()
+        return _Result(cur, is_select=is_select, is_insert=fetch_insert_id)
 
     def commit(self):
         self._raw.commit()

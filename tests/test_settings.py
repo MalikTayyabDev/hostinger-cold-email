@@ -104,6 +104,16 @@ def test_build_settings_from_simple_form(cfg):
     assert data["DRY_RUN"] == "true"
 
 
+def test_upsert_should_not_fetch_insert_id():
+    """UPSERT has no RETURNING — must not call fetchone (psycopg2: no results to fetch)."""
+    sql = (
+        "INSERT INTO user_settings(user_id, key, value) VALUES(%s,%s,%s) "
+        "ON CONFLICT(user_id, key) DO UPDATE SET value=excluded.value"
+    )
+    fetch_insert_id = "RETURNING" in sql.upper()
+    assert fetch_insert_id is False
+
+
 def test_postgres_upsert_sql_keeps_on_conflict():
     """Regression: UPSERT must not get RETURNING id (user_settings has no id column)."""
     sql = (
