@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ title or 'Error' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ title or 'Something went wrong' }}</h1>
+  <p>{{ message or 'Please try again. If this keeps happening, redeploy the app or check Vercel logs.' }}</p>
+</div>
+<div class="card" style="max-width:480px">
+  <a class="btn btn-primary" href="{{ url_for('dashboard.index') }}">Back to dashboard</a>
+  <a class="btn btn-secondary" href="{{ url_for('settings.index') }}" style="margin-left:8px">Connect email</a>
+</div>
+{% endblock %}

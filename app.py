@@ -1,12 +1,14 @@
 import os
 
-from flask import Flask
+from flask import Flask, render_template
+from werkzeug.exceptions import HTTPException
 
 from config import BUILD_ID, load_config
 from database.db import connect
+from database.request_db import RequestDbProxy, close_connection, init_app_db
 from logging_config import setup_logging
 from routes.auth import register_auth
-from routes.auth_helpers import generate_csrf_token, init_admin_user
+from routes.auth_helpers import generate_csrf_token
 from routes.campaigns import register_campaigns
 from routes.cron import register_cron
 from routes.dashboard import register_dashboard
@@ -40,7 +42,9 @@ def create_app():
     log = setup_logging()
     try:
         cfg = load_config()
-        con = connect(cfg.get("DATABASE") or "campaign.db")
+        test_con = connect(cfg.get("DATABASE") or "campaign.db")
+        test_con.execute("SELECT 1").fetchone()
+        close_connection(test_con)
     except Exception as exc:
         log.error("Database connection failed: %s", exc)
         return _error_app(f"{type(exc).__name__}: {exc}")
@@ -48,24 +52,39 @@ def create_app():
     app = Flask(__name__)
     app.secret_key = cfg["SECRET_KEY"]
     app.config["CFG"] = cfg
-    app.config["DB"] = con
 
-    init_admin_user(con, cfg)
-    register_auth(app, con)
-    register_dashboard(app, con, cfg)
-    register_campaigns(app, con, cfg)
-    register_leads(app, con, cfg)
-    register_settings(app, con, cfg)
-    register_unsubscribe(app, con)
-    register_cron(app, con, cfg)
+    init_app_db(app, cfg)
+    db = RequestDbProxy()
+
+    register_auth(app, db)
+    register_dashboard(app, db, cfg)
+    register_campaigns(app, db, cfg)
+    register_leads(app, db, cfg)
+    register_settings(app, db, cfg)
+    register_unsubscribe(app, db)
+    register_cron(app, db, cfg)
 
     @app.route("/health")
     def health():
+        from database.request_db import get_db
         try:
-            con.execute("SELECT 1").fetchone()
+            get_db().execute("SELECT 1").fetchone()
             return {"ok": True, "dry_run": cfg["DRY_RUN"], "build": BUILD_ID}
         except Exception as exc:
-            return {"ok": False, "error": str(exc)}, 500
+            log.error("Health check failed: %s", exc)
+            return {"ok": False, "error": str(exc), "build": BUILD_ID}, 500
+
+    @app.errorhandler(500)
+    def internal_server_error(e):
+        log.exception("Internal server error: %s", e)
+        return render_template("error.html", title="Server error", message="Something went wrong. Please try again in a moment."), 500
+
+    @app.errorhandler(Exception)
+    def unhandled_exception(e):
+        if isinstance(e, HTTPException):
+            return e
+        log.exception("Unhandled error: %s", e)
+        return render_template("error.html", title="Error", message="An unexpected error occurred. Please try again."), 500
 
     @app.context_processor
     def inject_globals():
@@ -100,7 +119,6 @@ def get_app():
     return create_app()
 
 
-# Local dev entrypoint only — Vercel uses api/index.py
 if not os.getenv("VERCEL"):
     app = create_app()
 

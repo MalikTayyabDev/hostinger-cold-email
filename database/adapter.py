@@ -116,6 +116,12 @@ class PostgresConnection:
     def commit(self):
         self._raw.commit()
 
+    def close(self):
+        try:
+            self._raw.close()
+        except Exception:
+            pass
+
     def executescript(self, script):
         pass
 

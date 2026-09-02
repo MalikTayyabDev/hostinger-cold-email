@@ -1,6 +1,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 
 from config import auth_enabled
+from database.request_db import get_db
 from routes.auth_helpers import generate_csrf_token, is_authenticated, login_required, register_user, validate_csrf, verify_login
 
 auth_bp = Blueprint("auth", __name__)
@@ -10,7 +11,7 @@ auth_bp = Blueprint("auth", __name__)
 def login():
     from flask import current_app
     cfg = current_app.config["CFG"]
-    con = current_app.config["DB"]
+    con = get_db()
     if not auth_enabled(cfg):
         return redirect(url_for("dashboard.index"))
 
@@ -39,7 +40,7 @@ def login():
 def register():
     from flask import current_app
     cfg = current_app.config["CFG"]
-    con = current_app.config["DB"]
+    con = get_db()
     if not auth_enabled(cfg):
         return redirect(url_for("dashboard.index"))
     if not cfg.get("ALLOW_SIGNUP", True):
