@@ -118,11 +118,10 @@ def _check_serverless_database_url(url):
 def connect_postgres(database_url):
     import psycopg2
 
-    url, is_pooler = _normalize_database_url(_clean_database_url(database_url))
+    url, _ = _normalize_database_url(_clean_database_url(database_url))
     _check_serverless_database_url(url)
     raw = psycopg2.connect(url)
-    if is_pooler:
-        raw.prepare_threshold = None
+    # prepare_threshold is psycopg3-only; psycopg2 works with Supabase pooler as-is.
     raw.autocommit = False
     return PostgresConnection(raw)
 
