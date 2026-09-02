@@ -91,10 +91,19 @@ class PostgresConnection:
         pass
 
 
+def _clean_database_url(database_url):
+    url = (database_url or "").strip()
+    if url.upper().startswith("DATABASE_URL="):
+        url = url.split("=", 1)[1].strip()
+    if (url.startswith('"') and url.endswith('"')) or (url.startswith("'") and url.endswith("'")):
+        url = url[1:-1]
+    return url
+
+
 def connect_postgres(database_url):
     import psycopg2
 
-    url, is_pooler = _normalize_database_url(database_url)
+    url, is_pooler = _normalize_database_url(_clean_database_url(database_url))
     raw = psycopg2.connect(url)
     if is_pooler:
         raw.prepare_threshold = None
